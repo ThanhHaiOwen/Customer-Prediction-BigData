@@ -1,0 +1,163 @@
+/* Japanese Cherry Blossom & Mt. Fuji Theme CSS */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #fff0f5;
+  background-image: url('https://placeholder.com/1600/900'); /* Replace with Mount Fuji image */
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  margin: 0;
+  padding: 0;
+  color: #333;
+}
+
+.container {
+  max-width: 400px;
+  margin: 50px auto;
+  padding: 20px;
+  border: 1px solid #ffb7c5;
+  border-radius: 12px;
+  text-align: center;
+  background-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 15px rgba(255, 183, 197, 0.3);
+  backdrop-filter: blur(5px);
+  position: relative;
+  overflow: hidden;
+}
+
+.container::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 80px;
+  height: 80px;
+  background-color: #ffb7c5;
+  opacity: 0.3;
+  border-radius: 40%;
+  z-index: -1;
+}
+
+h2 {
+  color: #d87093;
+  margin-bottom: 20px;
+  font-weight: bold;
+  position: relative;
+  padding-bottom: 10px;
+}
+
+h2::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 3px;
+  background-color: #ffb7c5;
+  border-radius: 2px;
+}
+
+label {
+  display: block;
+  text-align: left;
+  margin-top: 15px;
+  color: #d87093;
+  font-weight: 500;
+}
+
+input, select {
+  width: 100%;
+  padding: 10px;
+  margin: 8px 0 15px;
+  border: 1px solid #ffb7c5;
+  border-radius: 6px;
+  box-sizing: border-box;
+  background-color: rgba(255, 255, 255, 0.8);
+  transition: all 0.3s ease;
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: #d87093;
+  box-shadow: 0 0 0 3px rgba(216, 112, 147, 0.2);
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #ffb7c5 0%, #d87093 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  margin-top: 10px;
+}
+
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(216, 112, 147, 0.3);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+.result {
+  margin-top: 25px;
+  padding: 15px;
+  background-color: rgba(255, 240, 245, 0.8);
+  border-radius: 8px;
+  border: 1px solid #ffb7c5;
+}
+
+.result h3 {
+  font-size: 18px;
+  color: #d87093;
+  margin: 0;
+}
+
+.result span {
+  font-weight: bold;
+  color: #e75480;
+}
+
+.error {
+  color: #e74c3c;
+  margin-top: 10px;
+  padding: 10px;
+  background-color: rgba(231, 76, 60, 0.1);
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+/* Cherry Blossom Animation */
+@keyframes fall {
+  0% {
+    opacity: 0;
+    transform: translate(0, -10px) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(15px, 100px) rotate(90deg);
+  }
+}
+
+.container::after {
+  content: "❀";
+  position: absolute;
+  color: #ffb7c5;
+  top: 10px;
+  left: 40px;
+  font-size: 20px;
+  animation: fall 6s infinite;
+  opacity: 0;
+}

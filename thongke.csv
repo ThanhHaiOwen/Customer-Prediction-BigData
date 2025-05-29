@@ -1,0 +1,4 @@
+"Contract";"count(customerID)";"average(MonthlyCharges)";"percentage_count(Churn)"
+"Month-to-month";3875;66.39849032258037;55.01916796819537
+"One year";1473;65.04860828241674;20.914383075394007
+"Two year";1695;60.770412979351;24.06644895641062
