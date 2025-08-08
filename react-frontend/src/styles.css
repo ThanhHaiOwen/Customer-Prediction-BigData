@@ -224,6 +224,34 @@ label {
   pointer-events: none;
 }
 
+/* Chart Styles */
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.chart-card {
+  background: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  padding: 1.5rem;
+  height: 400px;
+  transition: transform 0.3s ease;
+}
+
+.chart-card:hover {
+  transform: translateY(-5px);
+}
+
+.chart-card h3 {
+  color: var(--primary-color);
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+  text-align: center;
+}
+
 /* Animations */
 @keyframes fadeIn {
   from {
@@ -238,6 +266,35 @@ label {
 
 .fade-in {
   animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Loading Animation */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.loading {
+  animation: pulse 1.5s infinite;
+  opacity: 0.7;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .chart-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .chart-card {
+    height: 300px;
+  }
 }
 
 button:hover {

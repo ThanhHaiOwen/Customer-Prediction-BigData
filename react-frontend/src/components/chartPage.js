@@ -15,7 +15,7 @@ const ChartPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get("http://127.0.0.1:5000/api/churn-data");
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/churn-data`);
       const data = response.data;
 
       // Chuẩn bị dữ liệu chung
@@ -82,102 +82,123 @@ const ChartPage = () => {
       });
     } catch (error) {
       console.error("Lỗi khi lấy dữ liệu:", error);
-      alert("Không thể tải dữ liệu biểu đồ");
+      setError("Không thể tải dữ liệu biểu đồ. Vui lòng thử lại sau.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto" }}>
-      <h1 style={{ textAlign: "center" }}>Thống kê Churn Rate</h1>
-      <button
-        onClick={fetchChartData}
-        style={{
-          display: "block",
-          margin: "20px auto",
-          padding: "10px 20px",
-          backgroundColor: "#f06292",
-          color: "white",
-          border: "none",
-          borderRadius: "5px",
-          cursor: "pointer",
-        }}
-      >
-        Tạo Biểu Đồ
-      </button>
+    <div className="container">
+      <div className="card">
+        <h2>Thống kê và Phân tích Churn Rate</h2>
+        <button
+          onClick={fetchChartData}
+          className={`btn ${loading ? 'loading' : ''}`}
+          disabled={loading}
+        >
+          {loading ? 'Đang tải...' : 'Tạo Biểu Đồ'}
+        </button>
+
+        {error && (
+          <div className="result-card danger">
+            <p>{error}</p>
+          </div>
+        )}
 
       {chartData && (
-        <div>
+        <div className="chart-grid">
           {/* Biểu đồ cột: Tỷ lệ churn */}
-          <div style={{ marginBottom: "40px" }}>
-            <h2 style={{ textAlign: "center" }}>Churn Rate theo loại hợp đồng</h2>
+          <div className="chart-card">
+            <h3>Tỷ lệ rời bỏ theo loại hợp đồng</h3>
             <Bar
               data={chartData.churnRateData}
               options={{
+                responsive: true,
+                maintainAspectRatio: false,
                 scales: {
                   y: {
                     beginAtZero: true,
-                    max: 60, // Giữ nguyên vì churn rate là phần trăm
-                    title: { display: true, text: "Tỷ Lệ Churn (%)" },
+                    title: { display: true, text: "Tỷ Lệ (%)" },
                   },
                   x: { title: { display: true, text: "Loại Hợp Đồng" } },
                 },
                 plugins: {
-                  legend: { display: true, position: "top" },
-                  title: { display: true, text: "Churn Rate theo loại hợp đồng" },
+                  legend: { position: "top" },
+                  tooltip: { mode: 'index', intersect: false },
                 },
               }}
             />
           </div>
 
           {/* Biểu đồ cột: Số lượng khách hàng */}
-          <div style={{ marginBottom: "40px" }}>
-            <h2 style={{ textAlign: "center" }}>Số lượng khách hàng theo loại hợp đồng</h2>
+          <div className="chart-card">
+            <h3>Phân bố khách hàng</h3>
             <Bar
               data={chartData.customerCountData}
               options={{
+                responsive: true,
+                maintainAspectRatio: false,
                 scales: {
                   y: {
                     beginAtZero: true,
-                    max: 4000, // Đặt max phù hợp với số lượng khách hàng
-                    title: { display: true, text: "Số lượng khách hàng" },
+                    title: { display: true, text: "Số lượng" },
                   },
                   x: { title: { display: true, text: "Loại Hợp Đồng" } },
                 },
-                plugins: { legend: { display: true, position: "top" } },
+                plugins: {
+                  legend: { position: "top" },
+                  tooltip: { mode: 'index', intersect: false },
+                },
               }}
             />
           </div>
 
-          {/* Biểu đồ cột: Trung bình chi phí hàng tháng */}
-          <div style={{ marginBottom: "40px" }}>
-            <h2 style={{ textAlign: "center" }}>Trung bình chi phí hàng tháng theo loại hợp đồng</h2>
+          {/* Biểu đồ cột: Chi phí trung bình */}
+          <div className="chart-card">
+            <h3>Chi phí trung bình hàng tháng</h3>
             <Bar
               data={chartData.avgMonthlyChargesData}
               options={{
+                responsive: true,
+                maintainAspectRatio: false,
                 scales: {
                   y: {
                     beginAtZero: true,
-                    max: 70, // Đặt max phù hợp với chi phí trung bình
-                    title: { display: true, text: "Chi phí hàng tháng (USD)" },
+                    title: { display: true, text: "USD" },
                   },
                   x: { title: { display: true, text: "Loại Hợp Đồng" } },
                 },
-                plugins: { legend: { display: true, position: "top" } },
+                plugins: {
+                  legend: { position: "top" },
+                  tooltip: { mode: 'index', intersect: false },
+                },
               }}
             />
           </div>
 
-          {/* Biểu đồ tròn: Phân bố khách hàng */}
-          <div style={{ marginBottom: "40px" }}>
-            <h2 style={{ textAlign: "center" }}>Phân bố khách hàng theo loại hợp đồng</h2>
+          {/* Biểu đồ tròn: Tổng quan */}
+          <div className="chart-card">
+            <h3>Tổng quan phân bố khách hàng</h3>
             <Pie
               data={chartData.customerDistributionData}
-              options={{ plugins: { legend: { display: true, position: "top" } } }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { position: "top" },
+                  tooltip: { mode: 'index', intersect: false },
+                },
+              }}
             />
           </div>
         </div>
       )}
     </div>
+  );
+};
+
+export default ChartPage;
   );
 };
 

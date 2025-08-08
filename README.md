@@ -87,8 +87,10 @@ npm start
 
 ### Production
 Truy cập ứng dụng tại:
-- Frontend: [https://your-app.vercel.app](https://your-app.vercel.app)
-- API: [https://your-app.onrender.com](https://your-app.onrender.com)
+- Frontend: [https://customer-prediction-bigdata.vercel.app](https://customer-prediction-bigdata.vercel.app)
+- API: [https://customer-prediction-bigdata.onrender.com](https://customer-prediction-bigdata.onrender.com)
+
+Lưu ý: Lần đầu tiên truy cập có thể mất vài giây để server khởi động.
 
 ## Authors
 

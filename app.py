@@ -5,10 +5,23 @@ from flask import Flask, request, jsonify, send_file
 import joblib
 from io import BytesIO
 from flask_cors import CORS
+import os
+from dotenv import load_dotenv
 
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__, static_url_path='', static_folder='static')
-CORS(app, resources={r"/*": {"origins": "*"}})  # Cho phép tất cả domain gọi API
+
+# CORS configuration
+allowed_origins = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
+CORS(app, resources={
+    r"/*": {
+        "origins": allowed_origins,
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
+    }
+})
 
 # ------------------ CHỨC NĂNG DỰ ĐOÁN ------------------
 # Load model và scaler
