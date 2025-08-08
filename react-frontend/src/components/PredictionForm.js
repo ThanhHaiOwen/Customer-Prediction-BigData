@@ -15,7 +15,7 @@ const PredictionForm = () => {
     e.preventDefault();
     setError(null);
     try {
-      const response = await axios.post("http://127.0.0.1:5000/predict", {
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/predict`, {
         MonthlyCharges: parseFloat(monthlyCharges),
         Contract: contract,
       });
@@ -40,41 +40,57 @@ const PredictionForm = () => {
   }, [navigate]);
 
   return (
-    <div className="prediction-form">
-      <h1>Dự đoán Churn của khách hàng</h1>
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label>Monthly Charges:</label>
-          <input
-            type="number"
-            value={monthlyCharges}
+    <div className="container">
+      <div className="card">
+        <h2>Dự đoán khả năng rời bỏ của khách hàng</h2>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="monthlyCharges">Chi phí hàng tháng:</label>
+            <input
+              id="monthlyCharges"
+              className="form-control"
+              type="number"
+              value={monthlyCharges}
             onChange={(e) => setMonthlyCharges(e.target.value)}
+            placeholder="Nhập số tiền..."
             required
           />
-        </div>
-        <div>
-          <label>Contract:</label>
-          <select
-            value={contract}
-            onChange={(e) => setContract(e.target.value)}
-          >
-            <option value="Month-to-month">Month-to-month</option>
-            <option value="One year">One year</option>
-            <option value="Two year">Two year</option>
-          </select>
-        </div>
-        <button type="submit">Dự đoán</button>
-      </form>
-      {prediction && (
-        <div>
-          <h3>Kết quả dự đoán: {prediction}</h3>
-        </div>
-      )}
-      {error && (
-        <div>
-          <p>{error}</p>
-        </div>
-      )}
+          </div>
+          <div className="form-group">
+            <label htmlFor="contract">Loại hợp đồng:</label>
+            <select
+              id="contract"
+              className="form-control"
+              value={contract}
+              onChange={(e) => setContract(e.target.value)}
+            >
+              <option value="Month-to-month">Theo tháng</option>
+              <option value="One year">1 năm</option>
+              <option value="Two year">2 năm</option>
+            </select>
+          </div>
+          <button type="submit" className="btn">
+            Dự đoán ngay
+          </button>
+        </form>
+        
+        {prediction && (
+          <div className={`result-card ${prediction === "Yes" ? "danger" : ""}`}>
+            <h3>Kết quả dự đoán</h3>
+            <p style={{ fontSize: "1.2rem", marginTop: "1rem" }}>
+              {prediction === "Yes" 
+                ? "⚠️ Khách hàng có khả năng rời bỏ dịch vụ" 
+                : "✅ Khách hàng có khả năng tiếp tục sử dụng dịch vụ"}
+            </p>
+          </div>
+        )}
+        
+        {error && (
+          <div className="result-card danger">
+            <p>{error}</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

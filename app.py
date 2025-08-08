@@ -8,7 +8,7 @@ from flask_cors import CORS
 
 
 app = Flask(__name__, static_url_path='', static_folder='static')
-CORS(app)  # Cho phép ReactJS gọi API
+CORS(app, resources={r"/*": {"origins": "*"}})  # Cho phép tất cả domain gọi API
 
 # ------------------ CHỨC NĂNG DỰ ĐOÁN ------------------
 # Load model và scaler

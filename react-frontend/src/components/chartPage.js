@@ -8,8 +8,12 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend,
 
 const ChartPage = () => {
   const [chartData, setChartData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const fetchChartData = async () => {
+    setLoading(true);
+    setError(null);
     try {
       const response = await axios.get("http://127.0.0.1:5000/api/churn-data");
       const data = response.data;

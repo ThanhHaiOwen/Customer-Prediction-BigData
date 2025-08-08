@@ -80,9 +80,15 @@ npm start
 
 ## Cách sử dụng
 
+### Local Development
 1. Truy cập http://localhost:3000
 2. Nhập thông tin khách hàng vào form
 3. Nhận kết quả dự đoán
+
+### Production
+Truy cập ứng dụng tại:
+- Frontend: [https://your-app.vercel.app](https://your-app.vercel.app)
+- API: [https://your-app.onrender.com](https://your-app.onrender.com)
 
 ## Authors
 

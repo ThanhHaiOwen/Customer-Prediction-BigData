@@ -1,99 +1,243 @@
-/* Japanese Cherry Blossom & Mt. Fuji Theme CSS */
+/* Modern Business Analytics Theme */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --primary-color: #2c7be5;
+  --secondary-color: #6e00ff;
+  --success-color: #00d97e;
+  --danger-color: #e63757;
+  --background-color: #f9fbfd;
+  --text-color: #12263f;
+  --border-radius: 8px;
+  --box-shadow: 0 0.75rem 1.5rem rgba(18, 38, 63, 0.03);
+}
+
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #fff0f5;
-  background-image: url('https://placeholder.com/1600/900'); /* Replace with Mount Fuji image */
+  font-family: 'Poppins', sans-serif;
+  background-color: var(--background-color);
+  background-image: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
   margin: 0;
   padding: 0;
-  color: #333;
+  color: var(--text-color);
 }
 
 .container {
-  max-width: 400px;
-  margin: 50px auto;
-  padding: 20px;
-  border: 1px solid #ffb7c5;
-  border-radius: 12px;
-  text-align: center;
-  background-color: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 4px 15px rgba(255, 183, 197, 0.3);
-  backdrop-filter: blur(5px);
-  position: relative;
-  overflow: hidden;
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 2rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
 }
 
-.container::before {
-  content: "";
-  position: absolute;
-  top: -10px;
-  right: -10px;
-  width: 80px;
-  height: 80px;
-  background-color: #ffb7c5;
-  opacity: 0.3;
-  border-radius: 40%;
-  z-index: -1;
+.card {
+  background: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  padding: 1.5rem;
+  transition: transform 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
 }
 
 h2 {
-  color: #d87093;
-  margin-bottom: 20px;
-  font-weight: bold;
+  color: var(--primary-color);
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
   position: relative;
-  padding-bottom: 10px;
 }
 
 h2::after {
   content: "";
   position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60px;
-  height: 3px;
-  background-color: #ffb7c5;
+  bottom: -8px;
+  left: 0;
+  width: 40px;
+  height: 4px;
+  background: var(--secondary-color);
   border-radius: 2px;
 }
 
+/* Form Styles */
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-control {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--text-color);
+  background-color: #fff;
+  border: 1px solid #e3ebf6;
+  border-radius: var(--border-radius);
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-control:focus {
+  border-color: var(--primary-color);
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(44, 123, 229, 0.25);
+}
+
+.btn {
+  display: inline-block;
+  font-weight: 500;
+  text-align: center;
+  vertical-align: middle;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  border-radius: var(--border-radius);
+  color: #fff;
+  background-color: var(--primary-color);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn:hover {
+  background-color: var(--secondary-color);
+  transform: translateY(-1px);
+}
+
+/* Chart Styles */
+.chart-container {
+  background: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+/* Table Styles */
+.table-container {
+  overflow-x: auto;
+  margin: 1.5rem 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: var(--border-radius);
+  overflow: hidden;
+}
+
+th, td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid #e3ebf6;
+}
+
+th {
+  background-color: #f9fbfd;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+tr:hover {
+  background-color: #f9fbfd;
+}
+
+/* Search & Filter Styles */
+.search-container {
+  position: relative;
+  margin-bottom: 2rem;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  padding-left: 2.5rem;
+  font-size: 1rem;
+  border: 1px solid #e3ebf6;
+  border-radius: var(--border-radius);
+  background-color: white;
+}
+
+.search-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #95aac9;
+}
+
+/* Result Card Styles */
+.result-card {
+  background: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  padding: 1.5rem;
+  margin-top: 2rem;
+  border-left: 4px solid var(--success-color);
+}
+
+.result-card.danger {
+  border-left-color: var(--danger-color);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+    margin: 1rem;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
+  .btn {
+    width: 100%;
+  }
+}
+
+/* Form Label Styles */
 label {
   display: block;
   text-align: left;
-  margin-top: 15px;
-  color: #d87093;
+  margin-bottom: 0.5rem;
+  color: var(--text-color);
   font-weight: 500;
 }
 
-input, select {
-  width: 100%;
-  padding: 10px;
-  margin: 8px 0 15px;
-  border: 1px solid #ffb7c5;
-  border-radius: 6px;
-  box-sizing: border-box;
-  background-color: rgba(255, 255, 255, 0.8);
-  transition: all 0.3s ease;
+/* Custom styles for specific elements */
+.text-danger {
+  color: var(--danger-color);
 }
 
-input:focus, select:focus {
-  outline: none;
-  border-color: #d87093;
-  box-shadow: 0 0 0 3px rgba(216, 112, 147, 0.2);
+.text-success {
+  color: var(--success-color);
 }
 
-button {
-  width: 100%;
-  padding: 12px;
-  background: linear-gradient(135deg, #ffb7c5 0%, #d87093 100%);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: all 0.3s ease;
-  margin-top: 10px;
+.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
 }
 
 button:hover {
