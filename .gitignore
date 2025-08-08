@@ -29,4 +29,26 @@ venv.bak/
 *.swo
 
 # Log files
-*.log 
+*.log
+
+# React frontend
+react-frontend/node_modules/
+react-frontend/.pnp
+react-frontend/.pnp.js
+react-frontend/coverage/
+react-frontend/build/
+react-frontend/.DS_Store
+react-frontend/.env.local
+react-frontend/.env.development.local
+react-frontend/.env.test.local
+react-frontend/.env.production.local
+react-frontend/npm-debug.log*
+react-frontend/yarn-debug.log*
+react-frontend/yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local 

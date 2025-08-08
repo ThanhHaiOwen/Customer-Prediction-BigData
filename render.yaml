@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: customer-prediction-bigdata
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app
+    envVars:
+      - key: ALLOWED_ORIGINS
+        value: https://customer-prediction-bigdata.vercel.app
+      - key: PYTHON_VERSION
+        value: 3.9.16 

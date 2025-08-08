@@ -9,6 +9,8 @@ Hệ thống dự đoán khách hàng rời bỏ dịch vụ (Customer Churn Pre
 │   ├── app.py                          # Flask server
 │   ├── best_logistic_model.pkl         # Model đã train
 │   ├── scaler.pkl                      # Bộ chuẩn hóa dữ liệu
+│   ├── wsgi.py                         # WSGI entry point
+│   ├── requirements.txt                # Python dependencies
 │   └── WA_Fn-UseC_-Telco-Customer-Churn.csv   # Dataset gốc
 │
 ├── Frontend (React)
@@ -43,7 +45,7 @@ Hệ thống dự đoán khách hàng rời bỏ dịch vụ (Customer Churn Pre
 
 ```bash
 # Cài đặt dependencies
-pip install flask flask-cors pandas numpy matplotlib joblib
+pip install -r requirements.txt
 
 # Chạy server
 python app.py
@@ -64,6 +66,7 @@ npm start
 
 ## API Endpoints
 
+- `GET /health`: Health check endpoint
 - `POST /predict`: Dự đoán khách hàng
   ```json
   {
@@ -71,12 +74,51 @@ npm start
     "Contract": "Month-to-month"
   }
   ```
+- `GET /api/filter-churn?churn=Yes`: Lọc khách hàng theo churn status
+- `GET /api/search-customers`: Tìm kiếm khách hàng
+- `GET /api/churn-data`: Lấy dữ liệu thống kê
+
+## Deployment
+
+### Backend (Render)
+
+1. **Tạo tài khoản Render**: Đăng ký tại [render.com](https://render.com)
+
+2. **Tạo Web Service**:
+   - Connect GitHub repository
+   - Chọn branch `main`
+   - Build Command: `pip install -r requirements.txt`
+   - Start Command: `gunicorn wsgi:app`
+
+3. **Environment Variables**:
+   ```
+   ALLOWED_ORIGINS=https://customer-prediction-bigdata.vercel.app
+   ```
+
+4. **Deploy**: Render sẽ tự động deploy khi có push mới
+
+### Frontend (Vercel)
+
+1. **Tạo tài khoản Vercel**: Đăng ký tại [vercel.com](https://vercel.com)
+
+2. **Import Project**:
+   - Connect GitHub repository
+   - Chọn thư mục `react-frontend`
+   - Framework Preset: `Create React App`
+
+3. **Environment Variables**:
+   ```
+   REACT_APP_API_URL=https://your-render-app.onrender.com
+   ```
+
+4. **Deploy**: Vercel sẽ tự động deploy khi có push mới
 
 ## Công nghệ sử dụng
 
 - **Backend**: Python, Flask, Pandas, Scikit-learn
 - **Frontend**: React, Chart.js
 - **Machine Learning**: Logistic Regression
+- **Deployment**: Render (Backend), Vercel (Frontend)
 
 ## Cách sử dụng
 
@@ -91,6 +133,20 @@ Truy cập ứng dụng tại:
 - API: [https://customer-prediction-bigdata.onrender.com](https://customer-prediction-bigdata.onrender.com)
 
 Lưu ý: Lần đầu tiên truy cập có thể mất vài giây để server khởi động.
+
+## Troubleshooting
+
+### Lỗi thường gặp
+
+1. **CORS Error**: Kiểm tra `ALLOWED_ORIGINS` environment variable
+2. **Model Loading Error**: Đảm bảo file `best_logistic_model.pkl` và `scaler.pkl` có trong repository
+3. **File Not Found**: Kiểm tra các file CSV cần thiết (`xemfulldata.csv`, `thongke.csv`)
+
+### Debug
+
+- Backend logs: Kiểm tra logs trong Render dashboard
+- Frontend logs: Kiểm tra browser console
+- API testing: Sử dụng Postman hoặc curl để test endpoints
 
 ## Authors
 

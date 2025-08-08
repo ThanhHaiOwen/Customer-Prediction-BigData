@@ -14,7 +14,7 @@ load_dotenv()
 app = Flask(__name__, static_url_path='', static_folder='static')
 
 # CORS configuration
-allowed_origins = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
+allowed_origins = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,https://customer-prediction-bigdata.vercel.app').split(',')
 CORS(app, resources={
     r"/*": {
         "origins": allowed_origins,
@@ -23,10 +23,20 @@ CORS(app, resources={
     }
 })
 
+# Health check endpoint
+@app.route("/health", methods=["GET"])
+def health_check():
+    return jsonify({"status": "healthy", "message": "Server is running"})
+
 # ------------------ CHỨC NĂNG DỰ ĐOÁN ------------------
 # Load model và scaler
-model = joblib.load("best_logistic_model.pkl")
-scaler = joblib.load("scaler.pkl")
+try:
+    model = joblib.load("best_logistic_model.pkl")
+    scaler = joblib.load("scaler.pkl")
+except Exception as e:
+    print(f"Error loading model or scaler: {e}")
+    model = None
+    scaler = None
 
 # Mapping cố định cho Contract (đảm bảo giống với lúc train)
 contract_mapping = {"Month-to-month": 0, "One year": 1, "Two year": 2}
@@ -35,6 +45,10 @@ contract_mapping = {"Month-to-month": 0, "One year": 1, "Two year": 2}
 def predict():
     if request.method == "GET":
         return jsonify({"message": "API endpoint is working. Please use POST method to make predictions."})
+    
+    if model is None or scaler is None:
+        return jsonify({"error": "Model or scaler not loaded properly"}), 500
+    
     try:
         data = request.json
         monthly_charges = float(data["MonthlyCharges"])
@@ -115,7 +129,10 @@ def filter_churn():
         try:
             df = pd.read_csv("xemfulldata.csv", delimiter=";", quotechar='"')
         except:
-            df = pd.read_csv("xemfulldata.csv")
+            try:
+                df = pd.read_csv("xemfulldata.csv")
+            except Exception as e:
+                return jsonify({"error": f"Không thể đọc file xemfulldata.csv: {str(e)}"}), 500
     except Exception as e:
         return jsonify({"error": f"Lỗi khi đọc file: {str(e)}"}), 500
     
@@ -153,7 +170,10 @@ def map_chart_data(file_path):
 @app.route("/api/churn-data", methods=["GET"])
 def churn_data():
     try:
-        df = map_chart_data("thongke.csv")
+        try:
+            df = map_chart_data("thongke.csv")
+        except Exception as e:
+            return jsonify({"error": f"Không thể đọc file thongke.csv: {str(e)}"}), 500
         return jsonify(df.to_dict(orient="records"))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -214,7 +234,14 @@ def search_customers():
     - contract (loại hợp đồng)
     """
     try:
-        df = pd.read_csv("xemfulldata.csv", delimiter=";", quotechar='"')
+        try:
+            df = pd.read_csv("xemfulldata.csv", delimiter=";", quotechar='"')
+        except:
+            try:
+                df = pd.read_csv("xemfulldata.csv")
+            except Exception as e:
+                return jsonify({"error": f"Không thể đọc file xemfulldata.csv: {str(e)}"}), 500
+        
         df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce")
         
         search_filters = {
