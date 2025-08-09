@@ -14,7 +14,7 @@ load_dotenv()
 app = Flask(__name__, static_url_path='', static_folder='static')
 
 # CORS configuration
-allowed_origins = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:3001,https://customer-prediction-bigdata.vercel.app').split(',')
+allowed_origins = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:3001,https://customer-prediction-big-data-sfsa.vercel.app').split(',')
 CORS(app, resources={
     r"/*": {
         "origins": allowed_origins,
@@ -274,4 +274,5 @@ def search_customers():
         return jsonify({"error": f"Lỗi khi tìm kiếm: {str(e)}"}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)

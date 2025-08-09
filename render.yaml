@@ -6,6 +6,6 @@ services:
     startCommand: gunicorn wsgi:app
     envVars:
       - key: ALLOWED_ORIGINS
-        value: https://customer-prediction-bigdata.vercel.app,http://localhost:3000,http://localhost:3001
+        value: https://customer-prediction-big-data-sfsa.vercel.app,http://localhost:3000,http://localhost:3001
       - key: PYTHON_VERSION
         value: 3.9.16
