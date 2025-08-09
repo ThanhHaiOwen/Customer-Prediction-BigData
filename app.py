@@ -15,6 +15,10 @@ app = Flask(__name__, static_url_path='', static_folder='static')
 
 # CORS configuration
 allowed_origins = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:3001,https://customer-prediction-big-data-sfsa.vercel.app').split(',')
+
+# Debug: Print allowed origins
+print(f"Allowed origins: {allowed_origins}")
+
 CORS(app, resources={
     r"/*": {
         "origins": allowed_origins,
