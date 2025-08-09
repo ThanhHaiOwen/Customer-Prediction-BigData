@@ -1,19 +1,57 @@
-# Customer Churn Prediction System 🚀
+# 🚀 Customer Churn Prediction System
 
-Hệ thống dự đoán khách hàng rời bỏ dịch vụ (Customer Churn Prediction) sử dụng Machine Learning và Big Data.
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel-brightgreen)](https://customer-prediction-big-data-sfsa.vercel.app)
+[![Backend API](https://img.shields.io/badge/Backend%20API-Render-blue)](https://customer-prediction-bigdata.onrender.com)
+[![Python](https://img.shields.io/badge/Python-3.11.7-blue)](https://python.org)
+[![React](https://img.shields.io/badge/React-19.0.0-blue)](https://reactjs.org)
+[![Flask](https://img.shields.io/badge/Flask-3.0.0-green)](https://flask.palletsprojects.com)
 
-## ✅ Trạng thái dự án
+Hệ thống dự đoán khách hàng rời bỏ dịch vụ (Customer Churn Prediction) sử dụng Machine Learning và Big Data. Dự án này giúp doanh nghiệp dự đoán khách hàng có khả năng rời bỏ dịch vụ để có chiến lược giữ chân phù hợp.
 
-**HOÀN THÀNH** - Backend và Frontend đã được kết nối thành công!
+## 🌐 Live Demo
 
-- ✅ Backend Flask chạy tại: http://localhost:5000
-- ✅ Frontend React chạy tại: http://localhost:3001
-- ✅ Tất cả API endpoints hoạt động bình thường
-- ✅ Dự đoán churn hoạt động chính xác
-- ✅ Lọc và tìm kiếm dữ liệu hoạt động tốt
-- ✅ Biểu đồ thống kê hiển thị đúng
+- **🎯 Frontend**: [https://customer-prediction-big-data-sfsa.vercel.app](https://customer-prediction-big-data-sfsa.vercel.app)
+- **🔧 Backend API**: [https://customer-prediction-bigdata.onrender.com](https://customer-prediction-bigdata.onrender.com)
 
-## Cấu trúc dự án
+## ✨ Tính năng chính
+
+- 📊 **Dự đoán Churn**: Dự đoán khả năng khách hàng rời bỏ dịch vụ
+- 🔍 **Lọc dữ liệu**: Hiển thị danh sách khách hàng theo trạng thái churn
+- 🔎 **Tìm kiếm**: Tìm kiếm khách hàng theo nhiều tiêu chí
+- 📈 **Phân tích dữ liệu**: Biểu đồ thống kê và phân tích churn rate
+
+## 🛠️ Công nghệ sử dụng
+
+### Backend
+- **Python 3.11.7** - Ngôn ngữ lập trình chính
+- **Flask 3.0.0** - Web framework
+- **Scikit-learn** - Machine Learning
+- **Pandas** - Xử lý dữ liệu
+- **Gunicorn** - WSGI server
+
+### Frontend
+- **React 19.0.0** - UI framework
+- **Chart.js** - Hiển thị biểu đồ
+- **Axios** - HTTP client
+- **React Router** - Routing
+
+### Deployment
+- **Render** - Backend hosting
+- **Vercel** - Frontend hosting
+- **GitHub** - Version control
+
+## 📸 Screenshots
+
+### Trang chủ
+![Homepage](https://via.placeholder.com/800x400/4285f4/ffffff?text=Customer+Churn+Prediction+Homepage)
+
+### Dự đoán Churn
+![Prediction](https://via.placeholder.com/800x400/34a853/ffffff?text=Churn+Prediction+Feature)
+
+### Biểu đồ thống kê
+![Charts](https://via.placeholder.com/800x400/ea4335/ffffff?text=Data+Analytics+Charts)
+
+## 📁 Cấu trúc dự án
 
 ```
 ├── Backend (Python/Flask)
