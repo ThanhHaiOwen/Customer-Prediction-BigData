@@ -143,10 +143,25 @@ npm start
    - **Tìm kiếm**: Tìm khách hàng theo ID, chi phí, hợp đồng
    - **Biểu đồ**: Xem thống kê và phân tích dữ liệu
 
-### Production
-Truy cập ứng dụng tại:
+### Production (Deploy lên Internet)
+
+**🌐 Để chia sẻ với người khác, xem file [DEPLOY_GUIDE.md](DEPLOY_GUIDE.md)**
+
+Sau khi deploy thành công:
 - Frontend: [https://customer-prediction-bigdata.vercel.app](https://customer-prediction-bigdata.vercel.app)
 - API: [https://customer-prediction-bigdata.onrender.com](https://customer-prediction-bigdata.onrender.com)
+
+**Cách nhanh nhất (Ngrok)**:
+```bash
+# Terminal 1: Chạy backend
+python app.py
+
+# Terminal 2: Chạy frontend
+cd react-frontend && npm start
+
+# Terminal 3: Tạo tunnel
+ngrok http 3001
+```
 
 Lưu ý: Lần đầu tiên truy cập có thể mất vài giây để server khởi động.
 

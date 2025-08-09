@@ -14,12 +14,13 @@ load_dotenv()
 app = Flask(__name__, static_url_path='', static_folder='static')
 
 # CORS configuration
-allowed_origins = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,https://customer-prediction-bigdata.vercel.app').split(',')
+allowed_origins = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:3001,https://customer-prediction-bigdata.vercel.app').split(',')
 CORS(app, resources={
     r"/*": {
         "origins": allowed_origins,
         "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"]
+        "allow_headers": ["Content-Type"],
+        "supports_credentials": True
     }
 })
 
