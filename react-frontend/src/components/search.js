@@ -39,19 +39,26 @@ const SearchCustomerPage = () => {
       if (searchParams.totalChargesMax) queryParams.append('totalChargesMax', searchParams.totalChargesMax);
       if (searchParams.contract) queryParams.append('contract', searchParams.contract);
       
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      console.log('Searching customers from:', `${apiUrl}/api/search-customers?${queryParams.toString()}`);
       const response = await fetch(`${apiUrl}/api/search-customers?${queryParams.toString()}`);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Something went wrong');
       }
-      
+
       const data = await response.json();
+      console.log('Search results:', data);
       setResults(data.customers || []);
       setCurrentPage(1); // Reset về trang 1 sau mỗi lần tìm kiếm
     } catch (err) {
-      setError(err.message);
+      console.error('Search error:', err);
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        setError("Không thể kết nối đến server. Vui lòng kiểm tra backend có đang chạy không!");
+      } else {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }

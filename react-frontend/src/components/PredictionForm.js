@@ -14,15 +14,38 @@ const PredictionForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setPrediction(null);
+
+    // Validate input
+    if (!monthlyCharges || parseFloat(monthlyCharges) <= 0) {
+      setError("Vui lòng nhập chi phí hàng tháng hợp lệ (> 0)");
+      return;
+    }
+
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/predict`, {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      console.log('Sending request to:', `${apiUrl}/predict`);
+      console.log('Data:', {
         MonthlyCharges: parseFloat(monthlyCharges),
         Contract: contract,
       });
+
+      const response = await axios.post(`${apiUrl}/predict`, {
+        MonthlyCharges: parseFloat(monthlyCharges),
+        Contract: contract,
+      });
+
+      console.log('Response:', response.data);
       setPrediction(response.data["Churn Prediction"]);
     } catch (err) {
-      console.error(err);
-      setError("Lỗi khi gửi dữ liệu, kiểm tra API!");
+      console.error('Error details:', err);
+      if (err.response) {
+        setError(`Lỗi API: ${err.response.data.error || err.response.statusText}`);
+      } else if (err.request) {
+        setError("Không thể kết nối đến server. Vui lòng kiểm tra backend có đang chạy không!");
+      } else {
+        setError(`Lỗi: ${err.message}`);
+      }
     }
   };
 

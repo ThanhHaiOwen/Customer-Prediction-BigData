@@ -1,6 +1,17 @@
-# Customer Prediction System
+# Customer Churn Prediction System 🚀
 
-Hệ thống dự đoán khách hàng rời bỏ dịch vụ (Customer Churn Prediction) sử dụng Machine Learning.
+Hệ thống dự đoán khách hàng rời bỏ dịch vụ (Customer Churn Prediction) sử dụng Machine Learning và Big Data.
+
+## ✅ Trạng thái dự án
+
+**HOÀN THÀNH** - Backend và Frontend đã được kết nối thành công!
+
+- ✅ Backend Flask chạy tại: http://localhost:5000
+- ✅ Frontend React chạy tại: http://localhost:3001
+- ✅ Tất cả API endpoints hoạt động bình thường
+- ✅ Dự đoán churn hoạt động chính xác
+- ✅ Lọc và tìm kiếm dữ liệu hoạt động tốt
+- ✅ Biểu đồ thống kê hiển thị đúng
 
 ## Cấu trúc dự án
 
@@ -123,9 +134,14 @@ npm start
 ## Cách sử dụng
 
 ### Local Development
-1. Truy cập http://localhost:3000
-2. Nhập thông tin khách hàng vào form
-3. Nhận kết quả dự đoán
+1. Khởi động Backend: `python app.py` (chạy tại http://localhost:5000)
+2. Khởi động Frontend: `cd react-frontend && npm start` (chạy tại http://localhost:3001)
+3. Truy cập http://localhost:3001 để sử dụng ứng dụng
+4. Sử dụng các tính năng:
+   - **Dự đoán**: Nhập chi phí hàng tháng và loại hợp đồng
+   - **Lọc dữ liệu**: Xem danh sách khách hàng theo trạng thái churn
+   - **Tìm kiếm**: Tìm khách hàng theo ID, chi phí, hợp đồng
+   - **Biểu đồ**: Xem thống kê và phân tích dữ liệu
 
 ### Production
 Truy cập ứng dụng tại:

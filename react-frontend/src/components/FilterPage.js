@@ -19,17 +19,24 @@ const FilterPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      console.log('Fetching filtered data from:', `${apiUrl}/api/filter-churn?churn=${churnValue}`);
       const response = await fetch(`${apiUrl}/api/filter-churn?churn=${churnValue}`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Something went wrong');
       }
       const data = await response.json();
+      console.log('Filtered data received:', data);
       setResults(data);
       setCurrentPage(1); // Reset to page 1 when filtering
     } catch (err) {
-      setError(err.message);
+      console.error('Filter error:', err);
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        setError("Không thể kết nối đến server. Vui lòng kiểm tra backend có đang chạy không!");
+      } else {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
