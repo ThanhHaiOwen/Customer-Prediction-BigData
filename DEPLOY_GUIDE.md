@@ -133,19 +133,28 @@ ngrok http 3001
 
 ### Lỗi thường gặp:
 
-1. **CORS Error**:
+1. **ESLint Build Error (Vercel)**:
+   ```
+   'ArrowRight' is defined but never used  no-unused-vars
+   ```
+   **Giải pháp**:
+   - ✅ Đã sửa: Xóa unused imports
+   - ✅ Đã sửa: Cập nhật build script: `"build": "CI=false react-scripts build"`
+   - Chạy `deploy-fix.bat` để commit và push fixes
+
+2. **CORS Error**:
    - Kiểm tra `ALLOWED_ORIGINS` environment variable
    - Đảm bảo URL frontend được thêm vào
 
-2. **Model Loading Error**:
+3. **Model Loading Error**:
    - Đảm bảo file `.pkl` có trong repository
    - Kiểm tra file size (GitHub có giới hạn 100MB)
 
-3. **Build Failed**:
+4. **Build Failed**:
    - Kiểm tra `requirements.txt`
    - Kiểm tra Python version
 
-4. **Cold Start (Render)**:
+5. **Cold Start (Render)**:
    - Lần đầu truy cập có thể chậm (30s)
    - Server sẽ "ngủ" sau 15 phút không sử dụng
 
