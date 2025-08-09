@@ -8,4 +8,4 @@ services:
       - key: ALLOWED_ORIGINS
         value: https://customer-prediction-big-data-sfsa.vercel.app,http://localhost:3000,http://localhost:3001
       - key: PYTHON_VERSION
-        value: 3.9.16
+        value: 3.11.7
