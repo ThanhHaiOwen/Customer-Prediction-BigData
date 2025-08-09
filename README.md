@@ -43,13 +43,13 @@ Hệ thống dự đoán khách hàng rời bỏ dịch vụ (Customer Churn Pre
 ## 📸 Screenshots
 
 ### Trang chủ
-![Homepage](https://via.placeholder.com/800x400/4285f4/ffffff?text=Customer+Churn+Prediction+Homepage)
+![Homepage]([https://via.placeholder.com/800x400/4285f4/ffffff?text=Customer+Churn+Prediction+Homepage](https://customer-prediction-big-data-sfsa.vercel.app/))
 
 ### Dự đoán Churn
-![Prediction](https://via.placeholder.com/800x400/34a853/ffffff?text=Churn+Prediction+Feature)
+![Prediction]([https://via.placeholder.com/800x400/34a853/ffffff?text=Churn+Prediction+Feature](https://customer-prediction-big-data-sfsa.vercel.app/prediction))
 
 ### Biểu đồ thống kê
-![Charts](https://via.placeholder.com/800x400/ea4335/ffffff?text=Data+Analytics+Charts)
+![Charts]([https://via.placeholder.com/800x400/ea4335/ffffff?text=Data+Analytics+Charts](https://customer-prediction-big-data-sfsa.vercel.app/chart))
 
 ## 📁 Cấu trúc dự án
 
