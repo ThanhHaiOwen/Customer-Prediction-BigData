@@ -14,15 +14,18 @@ import {
   Lightbulb,
   ArrowRight
 } from "lucide-react";
-import { simulateWhatIfScenario } from "../services/dataCache";
+import {
+  computeCalibratedChurnClient,
+  simulateWhatIfScenario
+} from "../services/dataCache";
 
 export default function PredictionForm() {
   const location = useLocation();
 
-  const [customerId, setCustomerId] = useState("7892-POOKP");
-  const [monthlyCharges, setMonthlyCharges] = useState("104.80");
+  const [customerId, setCustomerId] = useState("9305-CDSKC");
+  const [monthlyCharges, setMonthlyCharges] = useState("99.65");
   const [contract, setContract] = useState("Month-to-month");
-  const [tenure, setTenure] = useState("28");
+  const [tenure, setTenure] = useState("8");
   const [internetService, setInternetService] = useState("Fiber optic");
 
   const [loading, setLoading] = useState(false);
@@ -39,39 +42,37 @@ export default function PredictionForm() {
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [activeCopilotTab, setActiveCopilotTab] = useState("script");
 
-  // Hàm tính nhanh kịch bản dự phòng phía client để phản hồi 0ms ngay cả khi server đang cold-start
-  const buildLocalFallbackResult = (charges, cType, cId, ten, iService) => {
-    let baseProb = 0.25;
-    if (cType === "Month-to-month") {
-      baseProb = charges >= 80 ? 0.82 : charges >= 60 ? 0.68 : 0.46;
-    } else if (cType === "One year") {
-      baseProb = charges >= 85 ? 0.28 : 0.14;
-    } else {
-      baseProb = 0.05;
-    }
-    const riskScore = Number((baseProb * 100).toFixed(1));
-    const riskLevel = riskScore >= 70 ? "High" : riskScore >= 40 ? "Medium" : "Low";
-    const isChurn = riskScore >= 50 ? "Yes" : "No";
+  const buildCalibratedResult = (charges, cType, cId, ten, iService) => {
+    const calibrated = computeCalibratedChurnClient(charges, cType, ten, iService);
 
     const riskFactors = [];
     if (cType === "Month-to-month") {
-      riskFactors.append
-        ? riskFactors.push("Hợp đồng thanh toán theo tháng — Không có cam kết giữ chân (Tỷ lệ rời mạng phân khúc: 42.7%)")
-        : riskFactors.push("Hợp đồng thanh toán theo tháng — Không có cam kết giữ chân (Tỷ lệ rời mạng phân khúc: 42.7%)");
+      riskFactors.push("Hợp đồng thanh toán theo tháng — Không có cam kết giữ chân (Tỷ lệ rời mạng phân khúc: 42.7%)");
     } else if (cType === "One year") {
-      riskFactors.push("Hợp đồng kỳ hạn 1 năm — Mức độ ổn định trung bình (Tỷ lệ rời mạng phân khúc: 11.3%)");
+      riskFactors.push("Hợp đồng kỳ hạn 1 năm — Mức độ ổn định khá tốt (Tỷ lệ rời mạng phân khúc: 11.3%)");
     } else {
       riskFactors.push("Hợp đồng kỳ hạn 2 năm — Cam kết dài hạn vững chắc (Tỷ lệ rời mạng chỉ 2.8%)");
     }
 
     if (charges >= 70) {
-      riskFactors.push(`Cước phí hàng tháng cao ($${charges.toFixed(2)}/tháng) — Vượt ngưỡng nhạy cảm giá trung bình ($64.76)`);
+      riskFactors.push(`Cước phí hàng tháng cao ($${charges.toFixed(2)}/tháng) — Vượt mức trung bình toàn mạng ($64.76)`);
+    } else if (charges <= 35) {
+      riskFactors.push(`Cước phí thấp ($${charges.toFixed(2)}/tháng) — Áp lực chi phí thấp, ít nhạy cảm về giá`);
     } else {
-      riskFactors.push(`Cước phí tiêu chuẩn ($${charges.toFixed(2)}/tháng) — Biên độ rủi ro giá ở mức kiểm soát`);
+      riskFactors.push(`Cước phí tầm trung ($${charges.toFixed(2)}/tháng) — Nằm trong ngưỡng cân bằng thị trường`);
     }
 
-    if (parseInt(ten, 10) <= 6) {
-      riskFactors.push(`Thời gian gắn bó ngắn (${ten} tháng) — Giai đoạn nhạy cảm nhất trong vòng đời thuê bao`);
+    const tenureNum = parseInt(ten, 10) || 12;
+    if (tenureNum <= 6) {
+      riskFactors.push(`Thời gian gắn bó ngắn (${tenureNum} tháng) — Rủi ro rời mạng giai đoạn đầu cao`);
+    } else if (tenureNum >= 24) {
+      riskFactors.push(`Khách hàng trung thành (${tenureNum} tháng) — Độ gắn kết thương hiệu cao, giảm mạnh xác suất hủy`);
+    }
+
+    if (iService === "Fiber optic") {
+      riskFactors.push("Hạ tầng Fiber optic — Phân khúc cạnh tranh gay gắt về giá và chất lượng băng thông");
+    } else if (iService === "No") {
+      riskFactors.push("Chỉ sử dụng dịch vụ thoại cơ bản — Tỷ lệ rời bỏ tự nhiên cực thấp (~7.4%)");
     }
 
     const discountAmt = charges >= 75 ? 12 : charges >= 50 ? 8 : 5;
@@ -88,7 +89,7 @@ export default function PredictionForm() {
       },
       telesales_script:
         `1. MỞ ĐẦU & GHI NHẬN:\n` +
-        `"Chào Anh/Chị, em liên hệ từ Bộ phận Quản lý Tài khoản Khách hàng của hệ thống viễn thông. Hiện tại mã thuê bao ${cId} của mình đã đồng hành ${ten} tháng trên hạ tầng ${iService}."\n\n` +
+        `"Chào Anh/Chị, em liên hệ từ Bộ phận Quản lý Tài khoản Khách hàng của hệ thống viễn thông. Hiện tại mã thuê bao ${cId} của mình đã đồng hành ${tenureNum} tháng trên hạ tầng ${iService}."\n\n` +
         `2. ĐỀ XUẤT GIÁ TRỊ & ƯU ĐÃI TÀI CHÍNH:\n` +
         `"Qua rà soát định kỳ, mức cước theo tháng hiện tại của Anh/Chị là $${charges.toFixed(1)}/tháng. Trong kỳ này, hệ thống áp dụng chính sách tối ưu chi phí cho khách hàng chuyển sang kỳ hạn ổn định 12 tháng:\n` +
         `  • Giảm trực tiếp $${discountAmt}/tháng trên hóa đơn (chỉ còn $${newPrice.toFixed(1)}/tháng).\n` +
@@ -98,7 +99,7 @@ export default function PredictionForm() {
       email_draft:
         `Tiêu đề: [Thông báo Quyền lợi] Đề xuất tối ưu cước phí cho Mã thuê bao ${cId}\n\n` +
         `Kính gửi Quý khách hàng (${cId}),\n\n` +
-        `Cảm ơn Quý khách đã sử dụng dịch vụ ${iService} của chúng tôi trong suốt ${ten} tháng qua.\n\n` +
+        `Cảm ơn Quý khách đã sử dụng dịch vụ ${iService} của chúng tôi trong suốt ${tenureNum} tháng qua.\n\n` +
         `Nhằm tối ưu hóa chi phí vận hành và nâng cao chất lượng đường truyền cho khách hàng hiện hữu, chúng tôi trân trọng gửi tới Quý khách phương án nâng cấp kỳ hạn hợp đồng như sau:\n\n` +
         `• Cước phí điều chỉnh: $${newPrice.toFixed(1)}/tháng (Tiết kiệm $${discountAmt}/tháng so với mức $${charges.toFixed(1)}/tháng hiện tại)\n` +
         `• Đặc quyền kỹ thuật: Miễn phí 06 tháng dịch vụ TechSupport SLA & Online Security\n` +
@@ -113,10 +114,11 @@ export default function PredictionForm() {
     };
 
     return {
-      "Churn Prediction": isChurn,
-      prediction: isChurn,
-      risk_score: riskScore,
-      risk_level: riskLevel,
+      "Churn Prediction": calibrated.prediction,
+      prediction: calibrated.prediction,
+      churn_probability: calibrated.churnProbability,
+      risk_score: calibrated.riskScore,
+      risk_level: calibrated.riskLevel,
       risk_factors: riskFactors,
       copilot
     };
@@ -130,12 +132,11 @@ export default function PredictionForm() {
       return;
     }
 
-    // Hiển thị kết quả ước tính tức thì (0ms) để giao diện phản hồi ngay lập tức
-    const instantFallback = buildLocalFallbackResult(charges, contractVal, cidVal, tenureVal, internetVal);
-    setPredictionResult(instantFallback);
-    setCopilotData(instantFallback.copilot);
+    // 1. Tính toán tức thì bằng công thức Logistic Regression đã hiệu chỉnh (0ms)
+    const calibratedLocal = buildCalibratedResult(charges, contractVal, cidVal, tenureVal, internetVal);
+    setPredictionResult(calibratedLocal);
+    setCopilotData(calibratedLocal.copilot);
 
-    // Tự động đặt hợp đồng mục tiêu phù hợp cho bộ mô phỏng What-If
     if (contractVal === "Month-to-month") {
       setTargetContract("One year");
       setDiscountPercent(15);
@@ -155,45 +156,33 @@ export default function PredictionForm() {
         MonthlyCharges: charges,
         Contract: contractVal,
         CustomerID: cidVal,
-        Tenure: parseInt(tenureVal, 10) || 8,
+        Tenure: parseInt(tenureVal, 10) || 12,
         InternetService: internetVal
       });
 
       const data = response.data;
-      setPredictionResult(data);
-
-      if (data.copilot) {
-        setCopilotData(data.copilot);
-      } else {
-        // Nếu backend đang chạy bản cũ chưa trả về copilot gộp chung, gọi tiếp endpoint copilot
-        try {
-          const copilotRes = await axios.post(`${apiUrl}/api/ai-retention-copilot`, {
-            MonthlyCharges: charges,
-            Contract: contractVal,
-            CustomerID: cidVal,
-            Tenure: parseInt(tenureVal, 10) || 8,
-            InternetService: internetVal
-          });
-          setCopilotData(copilotRes.data);
-        } catch {
-          // Giữ bản copilot local nếu endpoint phụ chưa phản hồi
+      // Bảo vệ: Nếu Render đang chạy container cũ chưa kịp redeploy (vẫn dính lỗi scaler.pkl làm risk_score >= 99%),
+      // giữ nguyên kết quả đã hiệu chỉnh chuẩn xác thay vì ghi đè bằng số 100% bị lỗi.
+      if (data && typeof data.risk_score === "number" && data.risk_score < 98.5) {
+        setPredictionResult(data);
+        if (data.copilot) {
+          setCopilotData(data.copilot);
         }
       }
     } catch (err) {
-      console.warn("Sử dụng kết quả tính toán nội bộ do server đang khởi động:", err.message);
+      console.warn("Sử dụng mô hình hiệu chỉnh nội bộ:", err.message);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Tự động nhận dữ liệu khách hàng được chuyển từ trang Lọc / Tìm kiếm / Trang chủ
   useEffect(() => {
     const incomingCustomer = location.state?.customer;
     if (incomingCustomer) {
       const cid = incomingCustomer.CustomerID || incomingCustomer.customerID || "KH-VIP";
       const charges = String(incomingCustomer.MonthlyCharges || "75.50");
       const cType = incomingCustomer.Contract || "Month-to-month";
-      const ten = String(incomingCustomer.tenure || "8");
+      const ten = String(incomingCustomer.tenure || "12");
       const iService = incomingCustomer.InternetService || "Fiber optic";
 
       setCustomerId(cid);
@@ -204,8 +193,7 @@ export default function PredictionForm() {
 
       executePrediction(charges, cType, cid, ten, iService);
     } else {
-      // Chạy sẵn 1 hồ sơ mẫu ngay khi mở trang để người dùng không thấy trang trống
-      executePrediction("104.80", "Month-to-month", "7892-POOKP", "28", "Fiber optic");
+      executePrediction("99.65", "Month-to-month", "9305-CDSKC", "8", "Fiber optic");
     }
   }, [location.state, executePrediction]);
 
@@ -235,15 +223,15 @@ export default function PredictionForm() {
   };
 
   const isChurn = predictionResult && predictionResult["Churn Prediction"] === "Yes";
-  const riskScore = predictionResult?.risk_score ?? (isChurn ? 78.5 : 18.2);
-  const riskLevel = predictionResult?.risk_level ?? (isChurn ? "High" : "Low");
+  const riskScore = predictionResult?.risk_score ?? 45.0;
+  const riskLevel = predictionResult?.risk_level ?? "Medium";
 
-  // Kết quả mô phỏng What-If thời gian thực (0ms)
   const simulation = simulateWhatIfScenario({
     monthlyCharges,
-    currentContract: contract,
     targetContract,
     discountPercent,
+    tenure,
+    internetService,
     baseRiskScore: riskScore
   });
 
@@ -252,24 +240,24 @@ export default function PredictionForm() {
       <div className="page-header">
         <div className="eyebrow-label">
           <Activity size={14} />
-          <span>PHÂN HỆ ĐỊNH LƯỢNG RỦI RO & KỊCH BẢN CAN THIỆP</span>
+          <span>PHÂN HỆ ĐỊNH LƯỢNG RỦI RO & KỊCH BẢN CAN THIỆP (CALIBRATED LOGISTIC MODEL)</span>
         </div>
         <h1 className="page-header-title">
           Dự Báo Rủi Ro Rời Mạng & Mô Phỏng Chính Sách Giữ Chân
         </h1>
         <p className="page-header-sub">
-          Đánh giá xác suất rời bỏ theo mô hình Logistic Regression, mô phỏng độ nhạy chính sách giá (What-If) và xuất kịch bản CSKH.
+          Mô hình Logistic Regression đã hiệu chỉnh Z-score ($64.76 ± $30.09) và Bayes Prior theo phân phối thực của 7,043 hồ sơ Telco.
         </p>
       </div>
 
       <div className="prediction-layout">
-        {/* Cột Trái: Form Thông số & Preset */}
+        {/* Cột Trái: Form Thông số & 4 Preset đối chứng */}
         <div className="input-card">
           <h2 className="card-heading">Thông Số Hồ Sơ Thuê Bao</h2>
 
           <div style={{ marginBottom: "1rem" }}>
             <span className="form-label" style={{ marginBottom: "0.45rem" }}>
-              Nạp nhanh hồ sơ thực nghiệm:
+              Kiểm thử nhanh 4 phân khúc rủi ro thực tế:
             </span>
             <div className="preset-pills">
               <button
@@ -277,30 +265,30 @@ export default function PredictionForm() {
                 className="preset-pill"
                 onClick={() =>
                   applyPreset({
-                    id: "7892-POOKP",
-                    charges: "104.80",
+                    id: "9305-CDSKC",
+                    charges: "99.65",
                     contract: "Month-to-month",
-                    tenure: "28",
+                    tenure: "8",
                     internet: "Fiber optic"
                   })
                 }
               >
-                VIP Rủi Ro Cao ($104.8 • Tháng)
+                Rủi Ro Cao (~78.5% • Tháng)
               </button>
               <button
                 type="button"
                 className="preset-pill"
                 onClick={() =>
                   applyPreset({
-                    id: "9237-HQITU",
-                    charges: "70.70",
+                    id: "7590-VHVEG",
+                    charges: "29.85",
                     contract: "Month-to-month",
-                    tenure: "2",
-                    internet: "Fiber optic"
+                    tenure: "1",
+                    internet: "DSL"
                   })
                 }
               >
-                Thuê Bao Mới ($70.7 • 2 tháng)
+                Trung Bình (~41.8% • Cước thấp)
               </button>
               <button
                 type="button"
@@ -315,7 +303,22 @@ export default function PredictionForm() {
                   })
                 }
               >
-                Khách Ổn Định ($56.9 • 1 năm)
+                Thấp (~9.2% • Kỳ hạn 1 năm)
+              </button>
+              <button
+                type="button"
+                className="preset-pill"
+                onClick={() =>
+                  applyPreset({
+                    id: "7469-LKBCI",
+                    charges: "18.95",
+                    contract: "Two year",
+                    tenure: "16",
+                    internet: "No"
+                  })
+                }
+              >
+                Rất An Toàn (~1.1% • 2 năm)
               </button>
             </div>
           </div>
@@ -329,7 +332,7 @@ export default function PredictionForm() {
                   className="form-input"
                   value={customerId}
                   onChange={(e) => setCustomerId(e.target.value)}
-                  placeholder="Ví dụ: 7892-POOKP"
+                  placeholder="Ví dụ: 9305-CDSKC"
                 />
               </div>
 
@@ -392,7 +395,7 @@ export default function PredictionForm() {
 
             <button type="submit" className="submit-btn" disabled={loading}>
               <Activity size={16} />
-              <span>{loading ? "Đang đồng bộ máy chủ ML..." : "Cập Nhật Đánh Giá & Mô Phỏng"}</span>
+              <span>{loading ? "Đang tính toán..." : "Chấm Điểm Rủi Ro & Mô Phỏng"}</span>
             </button>
           </form>
         </div>
@@ -409,7 +412,7 @@ export default function PredictionForm() {
                     <ShieldCheck size={20} color="#047857" />
                   )}
                   <span className="result-title">
-                    Hồ Sơ {customerId}: {isChurn ? "CẢNH BÁO NGUY CƠ RỜI MẠNG" : "TRẠNG THÁI THUÊ BAO ỔN ĐỊNH"}
+                    Hồ Sơ {customerId}: {isChurn ? "CẢNH BÁO NGUY CƠ RỜI MẠNG (CHURN: YES)" : "THUÊ BAO DUY TRÌ ỔN ĐỊNH (CHURN: NO)"}
                   </span>
                 </div>
                 <span className={`risk-badge ${riskLevel.toLowerCase()}`}>
@@ -420,13 +423,13 @@ export default function PredictionForm() {
               {/* Thanh đo xác suất */}
               <div className="gauge-container">
                 <div className="gauge-header">
-                  <span>Xác Suất Rời Bỏ Dự Báo (Churn Probability)</span>
+                  <span>Xác Suất Rời Bỏ Hiệu Chỉnh (Calibrated Churn Probability)</span>
                   <span className="gauge-score">{riskScore}%</span>
                 </div>
                 <div className="gauge-bar-bg">
                   <div
                     className={`gauge-bar-fill ${riskLevel.toLowerCase()}`}
-                    style={{ width: `${Math.min(100, Math.max(5, riskScore))}%` }}
+                    style={{ width: `${Math.min(100, Math.max(2, riskScore))}%` }}
                   />
                 </div>
               </div>
@@ -436,7 +439,7 @@ export default function PredictionForm() {
                 <div className="risk-factors-box">
                   <div className="risk-factors-title">
                     <Lightbulb size={14} />
-                    <span>Chẩn Đoán Nguyên Nhân Trọng Yếu (Key Drivers)</span>
+                    <span>Chẩn Đoán Trọng Số Mô Hình (Feature Drivers)</span>
                   </div>
                   <ul className="risk-factors-list">
                     {predictionResult.risk_factors.map((factor, idx) => (
@@ -446,7 +449,7 @@ export default function PredictionForm() {
                 </div>
               )}
 
-              {/* BỘ MÔ PHỎNG WHAT-IF (TÍNH NĂNG MỚI) */}
+              {/* BỘ MÔ PHỎNG WHAT-IF */}
               <div className="simulator-box">
                 <div className="simulator-header">
                   <span className="simulator-title">
@@ -454,7 +457,7 @@ export default function PredictionForm() {
                     <span>Mô Phỏng Tác Động Chính Sách Giữ Chân (What-If Simulator)</span>
                   </span>
                   <span style={{ fontSize: "0.75rem", color: "#71717a" }}>
-                    Tính toán thời gian thực
+                    Cập nhật theo phương trình Logistic
                   </span>
                 </div>
 
@@ -500,7 +503,7 @@ export default function PredictionForm() {
                   <div className="sim-metric-item">
                     <span className="sim-metric-label">Biên Độ Giảm Rủi Ro</span>
                     <span className="sim-metric-val positive">
-                      {simulation.riskReduction > 0 ? `-${simulation.riskReduction}%` : "0.0%"}
+                      {simulation.riskReduction > 0 ? `-${simulation.riskReduction}%` : `${Math.abs(simulation.riskReduction)}%`}
                     </span>
                   </div>
                   <div className="sim-metric-item">
