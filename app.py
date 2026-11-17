@@ -73,11 +73,121 @@ def predict():
         # Chỉ chuẩn hóa cột MonthlyCharges (vì scaler được huấn luyện trên cột này)
         input_data["MonthlyCharges"] = scaler.transform(input_data[["MonthlyCharges"]])
 
-        # Dự đoán
-        prediction = model.predict(input_data)[0]
-        return jsonify({"Churn Prediction": "Yes" if prediction == 1 else "No"})
+        # Dự đoán phân lớp và xác suất
+        prediction = int(model.predict(input_data)[0])
+        probabilities = model.predict_proba(input_data)[0]
+        churn_prob = float(probabilities[1])
+        risk_score = round(churn_prob * 100, 1)
+
+        # Phân loại cấp độ rủi ro
+        if risk_score >= 70:
+            risk_level = "High"
+        elif risk_score >= 40:
+            risk_level = "Medium"
+        else:
+            risk_level = "Low"
+
+        # Phân tích nhân tố rủi ro chính
+        risk_factors = []
+        if contract == "Month-to-month":
+            risk_factors.append("Hợp đồng theo tháng (Tỷ lệ rời bỏ trung bình 42.7%)")
+        if monthly_charges >= 70:
+            risk_factors.append(f"Cước phí hàng tháng cao (${monthly_charges:.1f}/tháng - Nhạy cảm về giá)")
+        elif monthly_charges <= 30:
+            risk_factors.append(f"Gói cước cơ bản (${monthly_charges:.1f}/tháng - Nguy cơ chuyển dịch)")
+        if contract == "Two year":
+            risk_factors.append("Hợp đồng 2 năm (Gắn kết bền vững, tỷ lệ churn chỉ 2.8%)")
+
+        return jsonify({
+            "Churn Prediction": "Yes" if prediction == 1 else "No",
+            "prediction": "Yes" if prediction == 1 else "No",
+            "churn_probability": round(churn_prob, 4),
+            "risk_score": risk_score,
+            "risk_level": risk_level,
+            "risk_factors": risk_factors
+        })
     except Exception as e:
-        return jsonify({"error": str(e)})
+        return jsonify({"error": str(e)}), 400
+
+# ------------------ CHỨC NĂNG AI RETENTION COPILOT ------------------
+@app.route("/api/ai-retention-copilot", methods=["POST", "OPTIONS"])
+def ai_retention_copilot():
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"}), 200
+
+    try:
+        data = request.json or {}
+        monthly_charges = float(data.get("MonthlyCharges", 75.0))
+        contract = data.get("Contract", "Month-to-month")
+        customer_id = data.get("CustomerID", "KH-VIP")
+        tenure = int(data.get("Tenure", 8))
+        internet_service = data.get("InternetService", "Fiber optic")
+
+        # Phân tích đề xuất bằng AI Logic
+        discount_amount = 10 if monthly_charges >= 60 else 5
+        new_price = monthly_charges - discount_amount
+        annual_saved = monthly_charges * 12
+        net_retained = (monthly_charges - discount_amount) * 12
+
+        # 1. Tóm tắt rủi ro
+        risk_summary = (
+            f"Khách hàng {customer_id} đang chi trả ${monthly_charges:.1f}/tháng với hợp đồng '{contract}'. "
+            f"Nhóm hợp đồng này có tỷ lệ rời mạng lên tới 42.7% do không có ràng buộc cam kết. "
+            f"Cần can thiệp ngay để bảo vệ dòng doanh thu quy năm ${annual_saved:,.0f} USD."
+        )
+
+        # 2. Gói ưu đãi giữ chân đề xuất
+        recommended_offer = {
+            "title": "Gói Nâng Cấp Cam Kết 1 Năm (Annual Loyalty Boost)",
+            "discount": f"Giảm trực tiếp ${discount_amount}/tháng trong 6 tháng (Cước mới: ${new_price:.1f}/tháng)",
+            "perk": "Miễn phí 6 tháng dịch vụ Hỗ trợ Kỹ thuật VIP 24/7 (TechSupport)",
+            "financial_impact": f"Bảo toàn doanh thu thuần: ${net_retained:,.0f} USD/năm (Chi phí ưu đãi: ${discount_amount * 6} USD)"
+        }
+
+        # 3. Kịch bản gọi điện Telesales (Call Script)
+        telesales_script = (
+            f"DẠ CHÀO ANH/CHỊ [TÊN KHÁCH HÀNG],\n\n"
+            f"Em là [Tên nhân viên] từ bộ phận Chăm sóc Khách hàng Đặc quyền của [Tên Công ty].\n"
+            f"Nhân dịp tri ân khách hàng đã đồng hành cùng dịch vụ mạng trong suốt thời gian qua, "
+            f"hệ thống của em ghi nhận anh/chị là một trong những khách hàng ưu tiên được nhận gói "
+            f"nâng cấp đặc biệt trong tháng này:\n\n"
+            f"• Giảm ngay ${discount_amount}/tháng cho cước thuê bao hiện tại (từ ${monthly_charges:.1f} xuống chỉ còn ${new_price:.1f}/tháng).\n"
+            f"• Tặng kèm gói Hỗ trợ Kỹ thuật & Bảo vệ đường truyền VIP 24/7 hoàn toàn miễn phí.\n\n"
+            f"Để kích hoạt ưu đãi này, em xin phép hỗ trợ chuyển đổi gói cước sang cam kết 12 tháng "
+            f"giúp anh/chị cố định mức cước tốt nhất mà không sợ tăng giá. Anh/chị đồng ý để em kích hoạt luôn từ hôm nay nhé?"
+        )
+
+        # 4. Mẫu Email giữ chân
+        email_draft = (
+            f"Kính gửi Quý khách hàng {customer_id},\n\n"
+            f"Lời đầu tiên, chúng tôi xin chân thành cảm ơn Quý khách đã tin tưởng và đồng hành cùng dịch vụ viễn thông của chúng tôi.\n\n"
+            f"Chúng tôi trân trọng gửi tới Quý khách chương trình TRI ÂN ĐẶC QUYỀN:\n"
+            f"- Mức cước ưu đãi mới: ${new_price:.1f}/tháng (Tiết kiệm ${discount_amount}/tháng so với mức cước hiện tại).\n"
+            f"- Miễn phí 6 tháng dịch vụ Tech Support & Bảo vệ Thiết bị trực tuyến.\n\n"
+            f"Chương trình áp dụng khi Quý khách xác nhận nâng cấp kỳ hạn hợp đồng 12 tháng trước ngày 30 hàng tháng.\n\n"
+            f"Để kích hoạt, Quý khách chỉ cần phản hồi lại email này hoặc liên hệ hotline chăm sóc khách hàng 24/7.\n\n"
+            f"Trân trọng,\n"
+            f"Đội ngũ Chăm Sóc Khách Hàng"
+        )
+
+        # 5. Mẹo đàm phán khi khách hàng từ chối
+        objection_handling = [
+            f"Nếu khách chê cước đắt: Nhấn mạnh gói ưu đãi giúp tiết kiệm ${discount_amount * 6} USD trong 6 tháng đầu và cam kết không tăng giá.",
+            "Nếu khách ngại cam kết dài hạn: Đưa ra cam kết trải nghiệm 30 ngày dùng thử miễn phí, hoàn tiền 100% nếu không hài lòng.",
+            "Nếu khách phàn nàn sự cố mạng: Cam kết cử kỹ thuật viên kiểm tra modem trong vòng 24 giờ kèm tặng voucher cước."
+        ]
+
+        return jsonify({
+            "status": "success",
+            "customer_id": customer_id,
+            "risk_summary": risk_summary,
+            "recommended_offer": recommended_offer,
+            "telesales_script": telesales_script,
+            "email_draft": email_draft,
+            "objection_handling": objection_handling
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
     
 
 

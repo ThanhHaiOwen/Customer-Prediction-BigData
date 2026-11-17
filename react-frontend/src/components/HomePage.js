@@ -1,200 +1,151 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { Brain, BarChart3, Filter, Search, Users, AlertTriangle, DollarSign, Sparkles, ArrowRight } from "lucide-react";
 
-// Thêm CSS inline
-const styles = {
-  container: {
-    padding: '24px',
-    backgroundColor: '#faf8f5',
-    minHeight: '100vh',
-  },
-  header: {
-    textAlign: 'center',
-    marginBottom: '48px',
-  },
-  title: {
-    fontSize: '32px',
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: '8px',
-  },
-  subtitle: {
-    fontSize: '18px',
-    color: '#666',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '24px',
-    maxWidth: '1200px',
-    margin: '0 auto',
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    overflow: 'hidden',
-    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-    transition: 'transform 0.3s ease',
-    cursor: 'pointer',
-  },
-  cardHover: {
-    transform: 'scale(1.05)',
-  },
-  cardHeader: {
-    height: '8px',
-  },
-  cardBody: {
-    padding: '24px',
-  },
-  cardTitle: {
-    fontSize: '22px',
-    fontWeight: '600',
-    marginBottom: '8px',
-  },
-  cardDescription: {
-    color: '#666',
-    marginBottom: '16px',
-  },
-  cardFooter: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  shortcut: {
-    backgroundColor: '#f3f3f3',
-    color: '#555',
-    padding: '4px 12px',
-    borderRadius: '16px',
-    fontSize: '14px',
-  },
-  button: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: 'white',
-    borderRadius: '50%',
-    padding: '8px',
-  },
-  footer: {
-    marginTop: '48px',
-    textAlign: 'center',
-    color: '#777',
-  },
-};
-
-const HomePage = () => {
+export default function HomePage() {
   const navigate = useNavigate();
 
-  // Định nghĩa các cards cho các trang
-  const pages = [
+  const kpis = [
     {
-      title: "Dự đoán Churn",
-      description: "Nhập thông tin để dự đoán khả năng khách hàng rời đi",
-      path: "/prediction",
-      color: "#3b82f6", // blue-500
-      shortcut: "Ctrl+P",
-      bgColor: "#dbeafe", // light blue bg
-      icon: "📊",
+      title: "Tổng Khách Hàng Theo Dõi",
+      value: "7,043",
+      sub: "Hồ sơ viễn thông Telco",
+      icon: Users,
+      color: "#2563eb",
+      bgColor: "#eff6ff"
     },
     {
-      title: "Lọc dữ liệu",
-      description: "Lọc và hiển thị dữ liệu khách hàng theo Churn status",
-      path: "/filter",
-      color: "#22c55e", // green-500
-      shortcut: "Ctrl+Shift+F",
-      bgColor: "#dcfce7", // light green bg
-      icon: "🔍",
+      title: "Tỷ Lệ Rời Bỏ Trung Bình",
+      value: "26.54%",
+      sub: "1,869 khách hàng churn",
+      icon: AlertTriangle,
+      color: "#dc2626",
+      bgColor: "#fef2f2"
     },
     {
-      title: "Tìm kiếm",
-      description: "Tìm kiếm thông tin khách hàng theo nhiều tiêu chí",
-      path: "/search",
-      color: "#a855f7", // purple-500
-      shortcut: "Ctrl+Shift+S",
-      bgColor: "#f3e8ff", // light purple bg
-      icon: "🔎",
+      title: "Doanh Thu Rủi Ro / Năm",
+      value: "$1.67M",
+      sub: "$139,130 USD / tháng",
+      icon: DollarSign,
+      color: "#d97706",
+      bgColor: "#fffbeb"
     },
     {
-      title: "Phân tích dữ liệu",
-      description: "Xem biểu đồ và thống kê về dữ liệu khách hàng",
-      path: "/chart",
-      color: "#f59e0b", // amber-500
-      shortcut: "Ctrl+Shift+C",
-      bgColor: "#fef3c7", // light amber bg
-      icon: "📈",
-    },
+      title: "Tỷ Suất ROI Giữ Chân",
+      value: "6.1x",
+      sub: "Doanh thu bảo toàn từ AI",
+      icon: Sparkles,
+      color: "#16a34a",
+      bgColor: "#f0fdf4"
+    }
   ];
 
-  // Thiết lập phím tắt
-  React.useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.ctrlKey && e.shiftKey) {
-        if (e.key.toLowerCase() === "f") {
-          e.preventDefault();
-          navigate("/filter");
-        } else if (e.key.toLowerCase() === "s") {
-          e.preventDefault();
-          navigate("/search");
-        } else if (e.key.toLowerCase() === "c") {
-          e.preventDefault();
-          navigate("/chart");
-        }
-      } else if (e.ctrlKey && e.key.toLowerCase() === "p") {
-        e.preventDefault();
-        navigate("/prediction");
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [navigate]);
+  const features = [
+    {
+      title: "Dự Đoán Churn & AI Copilot",
+      desc: "Chấm điểm xác suất rời mạng theo thời gian thực và tự động tạo kịch bản Telesales, Email giữ chân bằng AI.",
+      badge: "Tích Hợp AI Mới",
+      badgeColor: "#8b5cf6",
+      icon: Brain,
+      path: "/prediction",
+      color: "#7c3aed"
+    },
+    {
+      title: "Biểu Đồ & Xu Hướng Analytics",
+      desc: "Trực quan hóa ma trận tương quan giữa hợp đồng, cước phí hàng tháng và tỷ lệ rời mạng của từng phân khúc.",
+      badge: "Trực Quan Hóa",
+      badgeColor: "#2563eb",
+      icon: BarChart3,
+      path: "/chart",
+      color: "#2563eb"
+    },
+    {
+      title: "Bộ Lọc Khách Hàng Churn",
+      desc: "Phân loại khách hàng theo nhóm Churn Yes / No thông qua xử lý MapReduce để phân bổ cho đội ngũ CSKH.",
+      badge: "MapReduce Filter",
+      badgeColor: "#059669",
+      icon: Filter,
+      path: "/filter",
+      color: "#059669"
+    },
+    {
+      title: "Tra Cứu Khách Hàng Đa Tiêu Chí",
+      desc: "Tìm kiếm chi tiết theo ID, loại dịch vụ mạng, hình thức thanh toán và hợp đồng với tốc độ truy xuất tối ưu.",
+      badge: "Tìm Kiếm Nhanh",
+      badgeColor: "#ea580c",
+      icon: Search,
+      path: "/search",
+      color: "#ea580c"
+    }
+  ];
 
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <h1 style={styles.title}>Customer Churn Analysis</h1>
-        <p style={styles.subtitle}>Phân tích và dự đoán khách hàng rời đi</p>
-      </header>
+    <div className="page-wrapper">
+      {/* Hero Banner */}
+      <section className="hero-section">
+        <div className="hero-badge">
+          <Sparkles size={16} />
+          <span>Hệ Thống Phân Tích & Giữ Chân Khách Hàng Thông Minh</span>
+        </div>
+        <h1 className="hero-title">
+          Chấm Điểm Rủi Ro Churn & <br />
+          <span className="hero-highlight">Tối Ưu Hóa Kịch Bản Giữ Chân Bằng AI</span>
+        </h1>
+        <p className="hero-subtitle">
+          Giải pháp toàn diện kết hợp Machine Learning dự đoán nguy cơ rời mạng và Trợ lý AI đề xuất kịch bản Telesales, 
+          hỗ trợ doanh nghiệp bảo vệ dòng doanh thu định kỳ với tỷ suất sinh lời vượt trội.
+        </p>
+      </section>
 
-      <div style={styles.grid}>
-        {pages.map((page, index) => (
-          <div 
-            key={index} 
-            style={styles.card}
-            onClick={() => navigate(page.path)}
-            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-          >
-            <div style={{...styles.cardHeader, backgroundColor: page.color}}></div>
-            <div style={styles.cardBody}>
-              <div style={{fontSize: '36px', marginBottom: '8px'}}>{page.icon}</div>
-              <h2 style={styles.cardTitle}>{page.title}</h2>
-              <p style={styles.cardDescription}>{page.description}</p>
-              <div style={styles.cardFooter}>
-                <span style={styles.shortcut}>
-                  {page.shortcut}
+      {/* KPI Cards Grid */}
+      <section className="kpi-grid">
+        {kpis.map((kpi, idx) => {
+          const Icon = kpi.icon;
+          return (
+            <div key={idx} className="kpi-card">
+              <div className="kpi-header">
+                <span className="kpi-title">{kpi.title}</span>
+                <div className="kpi-icon-badge" style={{ backgroundColor: kpi.bgColor, color: kpi.color }}>
+                  <Icon size={20} />
+                </div>
+              </div>
+              <div className="kpi-value" style={{ color: kpi.color }}>{kpi.value}</div>
+              <div className="kpi-sub">{kpi.sub}</div>
+            </div>
+          );
+        })}
+      </section>
+
+      {/* Feature Navigation Cards */}
+      <section className="features-grid">
+        {features.map((feat, idx) => {
+          const Icon = feat.icon;
+          return (
+            <div 
+              key={idx} 
+              className="feature-card" 
+              onClick={() => navigate(feat.path)}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="feature-top">
+                <div className="feature-icon-box" style={{ color: feat.color, backgroundColor: `${feat.color}15` }}>
+                  <Icon size={26} />
+                </div>
+                <span className="feature-badge" style={{ backgroundColor: `${feat.badgeColor}15`, color: feat.badgeColor }}>
+                  {feat.badge}
                 </span>
-                <button 
-                  style={{...styles.button, backgroundColor: page.color}}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(page.path);
-                  }}
-                >
-                  →
-                </button>
+              </div>
+              <h3 className="feature-title">{feat.title}</h3>
+              <p className="feature-desc">{feat.desc}</p>
+              <div className="feature-action" style={{ color: feat.color }}>
+                <span>Truy cập tính năng</span>
+                <ArrowRight size={16} />
               </div>
             </div>
-          </div>
-        ))}
-      </div>
-
-      <footer style={styles.footer}>
-        <p>Nhấn các phím tắt để di chuyển nhanh giữa các trang</p>
-        <p style={{marginTop: '8px'}}>© 2025 Customer Churn Analysis Tool</p>
-      </footer>
+          );
+        })}
+      </section>
     </div>
   );
-};
-
-export default HomePage;
+}
