@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Filter, Users, ChevronLeft, ChevronRight, ArrowLeft, Search, CheckCircle, AlertTriangle } from 'lucide-react';
 
 const FilterPage = () => {
   const [churnValue, setChurnValue] = useState('Yes');
@@ -10,6 +11,7 @@ const FilterPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -19,7 +21,7 @@ const FilterPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://customer-prediction-bigdata.onrender.com';
       console.log('Fetching filtered data from:', `${apiUrl}/api/filter-churn?churn=${churnValue}`);
       const response = await fetch(`${apiUrl}/api/filter-churn?churn=${churnValue}`);
       if (!response.ok) {
@@ -33,7 +35,7 @@ const FilterPage = () => {
     } catch (err) {
       console.error('Filter error:', err);
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
-        setError("Không thể kết nối đến server. Vui lòng kiểm tra backend có đang chạy không!");
+        setError("Không thể kết nối đến server Backend hoặc server đang khởi động. Vui lòng thử lại sau 30 giây.");
       } else {
         setError(err.message);
       }
@@ -55,7 +57,7 @@ const FilterPage = () => {
 
   // Calculate pagination
   const totalItems = results.customers ? results.customers.length : 0;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
 
   // Get current page data
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -70,7 +72,7 @@ const FilterPage = () => {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   };
 
-  // Format total charges to handle variable formats
+  // Format total charges
   const formatTotalCharges = (value) => {
     if (!value || value === "Unknown") return "$0.00";
     const numValue = parseFloat(value);
@@ -78,132 +80,185 @@ const FilterPage = () => {
   };
 
   return (
-    <div style={{ margin: '20px' }}>
-      <h1>LỌC DỮ LIỆU KHÁCH HÀNG THEO CHURN</h1>
+    <div className="page-wrapper">
+      {/* Page Header */}
+      <div className="page-header">
+        <h1 className="page-header-title">
+          <Filter className="title-icon" size={28} />
+          Lọc Dữ Liệu Khách Hàng (Churn Filter)
+        </h1>
+        <p className="page-header-sub">
+          Phân loại và trích xuất hồ sơ khách hàng theo trạng thái rời bỏ (Churn Yes / No) thông qua cơ chế phân mảnh dữ liệu Big Data.
+        </p>
+      </div>
 
-      {/* Filter form */}
-      <form onSubmit={handleSubmit} style={{ marginBottom: '20px' }}>
-        <label htmlFor="churnValue">Churn Status:</label>
-        <select
-          id="churnValue"
-          value={churnValue}
-          onChange={(e) => setChurnValue(e.target.value)}
-          style={{ margin: '0 10px' }}
-        >
-          <option value="Yes">Yes</option>
-          <option value="No">No</option>
-        </select>
-        <button type="submit">Apply Filter</button>
-      </form>
-      
-      {/* Filter stats */}
+      {/* Filter Form Card */}
+      <div className="filter-card">
+        <form onSubmit={handleSubmit}>
+          <div className="filter-row">
+            <div style={{ minWidth: '220px' }}>
+              <label htmlFor="churnValue" className="form-label">
+                Trạng Thái Rời Mạng (Churn Status):
+              </label>
+              <select
+                id="churnValue"
+                className="form-select"
+                value={churnValue}
+                onChange={(e) => setChurnValue(e.target.value)}
+              >
+                <option value="Yes">Yes (Khách hàng có nguy cơ rời mạng)</option>
+                <option value="No">No (Khách hàng đang duy trì dịch vụ)</option>
+              </select>
+            </div>
+
+            <div style={{ alignSelf: 'flex-end' }}>
+              <button type="submit" className="btn btn-primary" disabled={loading}>
+                <Filter size={16} />
+                {loading ? 'Đang Lọc...' : 'Áp Dụng Bộ Lọc'}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      {/* Error display */}
+      {error && (
+        <div className="error-alert">
+          {error}
+        </div>
+      )}
+
+      {/* Filter Stats Banner */}
       {!loading && !error && results.count !== undefined && (
-        <div style={{ marginBottom: '15px' }}>
-          <strong>Found: {results.count} customers</strong> with Churn status: <strong>{churnValue}</strong>
+        <div className="results-banner">
+          <div>
+            Tìm thấy <span className="results-count-chip">{results.count}</span> khách hàng có trạng thái Churn: <strong>{churnValue}</strong>
+          </div>
+          <div className="cell-muted">
+            Hiển thị trang {currentPage} / {totalPages}
+          </div>
         </div>
       )}
 
       {/* Loading indicator */}
-      {loading && <p>Loading...</p>}
-
-      {/* Error display */}
-      {error && <p style={{ color: 'red' }}>Error: {error}</p>}
+      {loading && (
+        <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+          <p className="cell-muted">Đang tải và lọc danh sách khách hàng từ máy chủ...</p>
+        </div>
+      )}
 
       {/* Results table */}
-      {currentItems.length > 0 ? (
+      {!loading && currentItems.length > 0 ? (
         <>
-          <table
-            border="1"
-            cellPadding="8"
-            cellSpacing="0"
-            style={{ width: '100%', tableLayout: 'auto' }}
-          >
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Customer Info</th>
-                <th>Contract Info</th>
-                <th>Charges</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentItems.map((customer, index) => (
-                <tr key={customer.CustomerID || index}>
-                  <td>{customer.CustomerID}</td>
-                  <td>
-                    <div>
-                      <strong>{customer.gender}</strong> •{' '}
-                      {customer.SeniorCitizen === 1 ? 'Senior' : 'Regular'}
-                    </div>
-                    <div>Partner: {customer.Partner} • Dependents: {customer.Dependents}</div>
-                    <div>Tenure: {customer.tenure} months</div>
-                  </td>
-                  <td>
-                    <div>Internet: {customer.InternetService}</div>
-                    <div>Contract: {customer.Contract}</div>
-                    <div>Payment: {customer.PaymentMethod}</div>
-                  </td>
-                  <td>
-                    <div>${customer.MonthlyCharges}/mo</div>
-                    <div>Total: {formatTotalCharges(customer.TotalCharges)}</div>
-                    <div style={{ color: customer.Churn === 'Yes' ? 'red' : 'green' }}>
-                      {customer.Churn === 'Yes' ? 'Churned' : 'Active'}
-                    </div>
-                  </td>
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ width: '130px' }}>Mã KH</th>
+                  <th>Hồ Sơ Khách Hàng</th>
+                  <th>Thông Tin Hợp Đồng</th>
+                  <th style={{ width: '160px' }}>Cước Phí & Trạng Thái</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {currentItems.map((customer, index) => (
+                  <tr key={customer.CustomerID || index}>
+                    <td>
+                      <span className="badge-customer-id">
+                        {customer.CustomerID || `KH-${index}`}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="cell-info-line">
+                        <strong>{customer.gender || 'N/A'}</strong> • {customer.SeniorCitizen === 1 ? 'Người cao tuổi' : 'Khách phổ thông'}
+                      </div>
+                      <div className="cell-info-line cell-muted">
+                        Đối tác: {customer.Partner || 'No'} • Người phụ thuộc: {customer.Dependents || 'No'}
+                      </div>
+                      <div className="cell-info-line cell-muted">
+                        Thời gian gắn bó: <strong>{customer.tenure} tháng</strong>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="cell-info-line">
+                        Internet: <strong>{customer.InternetService}</strong>
+                      </div>
+                      <div className="cell-info-line cell-muted">
+                        Hợp đồng: {customer.Contract}
+                      </div>
+                      <div className="cell-info-line cell-muted">
+                        Thanh toán: {customer.PaymentMethod}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="cell-info-line" style={{ fontWeight: 700, fontSize: '0.98rem' }}>
+                        ${customer.MonthlyCharges}/tháng
+                      </div>
+                      <div className="cell-info-line cell-muted" style={{ marginBottom: '0.5rem' }}>
+                        Tổng: {formatTotalCharges(customer.TotalCharges)}
+                      </div>
+                      <div>
+                        {customer.Churn === 'Yes' ? (
+                          <span className="badge-churn-yes">
+                            <AlertTriangle size={13} /> Churned
+                          </span>
+                        ) : (
+                          <span className="badge-churn-no">
+                            <CheckCircle size={13} /> Active
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           {/* Pagination controls */}
-          <div style={{ marginTop: '10px' }}>
-            <button onClick={goToPreviousPage} disabled={currentPage === 1}>
-              Previous
+          <div className="pagination-container">
+            <button
+              onClick={goToPreviousPage}
+              disabled={currentPage === 1}
+              className="pagination-btn"
+            >
+              <ChevronLeft size={16} /> Trang Trước
             </button>
-            <span style={{ margin: '0 10px' }}>
-              Page {currentPage} of {totalPages}
+            <span className="pagination-info">
+              Trang {currentPage} trên {totalPages} ({totalItems} kết quả)
             </span>
-            <button onClick={goToNextPage} disabled={currentPage === totalPages}>
-              Next
+            <button
+              onClick={goToNextPage}
+              disabled={currentPage === totalPages}
+              className="pagination-btn"
+            >
+              Trang Sau <ChevronRight size={16} />
             </button>
           </div>
         </>
       ) : (
-        // Show when no results
-        !loading && !error && <p>No results found.</p>
+        !loading && !error && (
+          <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+            <Users size={40} style={{ color: '#cbd5e1', marginBottom: '1rem' }} />
+            <h3 style={{ margin: '0 0 0.5rem 0', color: '#334155' }}>Không tìm thấy kết quả</h3>
+            <p className="cell-muted">Thử thay đổi điều kiện lọc ở trên.</p>
+          </div>
+        )
       )}
-      
+
       {/* Navigation buttons */}
-      <div style={{ marginTop: '20px' }}>
-        {/* Back button */}
+      <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
         <button
-          onClick={() => navigate('/')}
-          style={{ 
-            marginRight: '10px',
-            padding: '8px 16px',
-            backgroundColor: '#3b82f6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer' 
-          }}
+          onClick={() => navigate('/prediction')}
+          className="btn btn-secondary"
         >
-          ← Back to Prediction
+          <ArrowLeft size={16} /> Quay Lại Dự Đoán Churn
         </button>
-        
-        {/* Search page button */}
         <button
           onClick={() => navigate('/search')}
-          style={{ 
-            padding: '8px 16px',
-            backgroundColor: '#8b5cf6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer' 
-          }}
+          className="btn btn-secondary"
         >
-          Go to Search Page
+          <Search size={16} /> Chuyển Đến Tìm Kiếm Khách Hàng
         </button>
       </div>
     </div>

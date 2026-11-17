@@ -6,6 +6,7 @@ import PredictionForm from './components/PredictionForm';
 import FilterPage from './components/FilterPage';
 import ChartPage from './components/chartPage';
 import SearchCustomerPage from './components/search';
+import './styles.css';
 
 function App() {
   return (
