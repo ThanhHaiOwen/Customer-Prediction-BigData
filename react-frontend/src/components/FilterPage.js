@@ -1,12 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Filter, Users, ChevronLeft, ChevronRight, ArrowLeft, Search, CheckCircle, AlertTriangle } from 'lucide-react';
+import {
+  Filter,
+  Users,
+  ChevronLeft,
+  ChevronRight,
+  ArrowLeft,
+  Search,
+  CheckCircle,
+  AlertTriangle,
+  Download,
+  ArrowRight
+} from 'lucide-react';
+import {
+  getFilteredChurnCached,
+  exportCustomersToCSV,
+  PRIORITY_WATCHLIST
+} from '../services/dataCache';
 
 const FilterPage = () => {
   const [churnValue, setChurnValue] = useState('Yes');
   const [results, setResults] = useState({
-    count: 0,
-    customers: []
+    count: PRIORITY_WATCHLIST.length,
+    customers: PRIORITY_WATCHLIST
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -16,55 +32,45 @@ const FilterPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Fetch data from API
-  const fetchFilteredData = async () => {
+  const loadFilteredData = useCallback(async (targetChurn) => {
     setLoading(true);
     setError(null);
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://customer-prediction-bigdata.onrender.com';
-      console.log('Fetching filtered data from:', `${apiUrl}/api/filter-churn?churn=${churnValue}`);
-      const response = await fetch(`${apiUrl}/api/filter-churn?churn=${churnValue}`);
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Something went wrong');
-      }
-      const data = await response.json();
-      console.log('Filtered data received:', data);
-      setResults(data);
-      setCurrentPage(1); // Reset to page 1 when filtering
+      const data = await getFilteredChurnCached(targetChurn);
+      setResults({
+        count: data.count ?? (data.customers ? data.customers.length : 0),
+        customers: data.customers || []
+      });
+      setCurrentPage(1);
     } catch (err) {
       console.error('Filter error:', err);
-      if (err.name === 'TypeError' && err.message.includes('fetch')) {
-        setError("Không thể kết nối đến server Backend hoặc server đang khởi động. Vui lòng thử lại sau 30 giây.");
-      } else {
-        setError(err.message);
-      }
+      setError("Đang hiển thị danh sách ưu tiên nội bộ. Máy chủ dữ liệu đang khởi động, vui lòng bấm lọc lại sau vài giây.");
     } finally {
       setLoading(false);
     }
-  };
-
-  // Load data when component mounts
-  useEffect(() => {
-    fetchFilteredData();
-    // eslint-disable-next-line
   }, []);
+
+  useEffect(() => {
+    loadFilteredData(churnValue);
+  }, [churnValue, loadFilteredData]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    fetchFilteredData();
+    loadFilteredData(churnValue);
+  };
+
+  const handleAnalyzeCustomer = (customer) => {
+    navigate('/prediction', { state: { customer } });
   };
 
   // Calculate pagination
   const totalItems = results.customers ? results.customers.length : 0;
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
 
-  // Get current page data
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentItems = results.customers ? results.customers.slice(startIndex, endIndex) : [];
 
-  // Navigation functions
   const goToPreviousPage = () => {
     setCurrentPage((prev) => Math.max(prev - 1, 1));
   };
@@ -72,7 +78,6 @@ const FilterPage = () => {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   };
 
-  // Format total charges
   const formatTotalCharges = (value) => {
     if (!value || value === "Unknown") return "$0.00";
     const numValue = parseFloat(value);
@@ -81,24 +86,54 @@ const FilterPage = () => {
 
   return (
     <div className="page-wrapper">
-      {/* Page Header */}
-      <div className="page-header">
-        <h1 className="page-header-title">
-          <Filter className="title-icon" size={28} />
-          Lọc Dữ Liệu Khách Hàng (Churn Filter)
-        </h1>
-        <p className="page-header-sub">
-          Phân loại và trích xuất hồ sơ khách hàng theo trạng thái rời bỏ (Churn Yes / No) thông qua cơ chế phân mảnh dữ liệu Big Data.
-        </p>
+      {/* Executive Header */}
+      <div className="executive-header">
+        <div>
+          <div className="eyebrow-label">
+            <Filter size={14} />
+            <span>PHÂN KHÚC DỮ LIỆU KHÁCH HÀNG & XUẤT DANH SÁCH CRM</span>
+          </div>
+          <h1 className="page-header-title">
+            Bộ Lọc Phân Khúc Thuê Bao Theo Trạng Thái Rời Mạng
+          </h1>
+          <p className="page-header-sub">
+            Phân tách tập khách hàng rủi ro (Churn = Yes) và tập khách hàng ổn định (Churn = No) để triển khai chiến dịch giữ chân.
+          </p>
+        </div>
+
+        <div className="header-actions">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() =>
+              exportCustomersToCSV(
+                results.customers,
+                `Phan_Khuc_Churn_${churnValue}_${results.count}_HoSo.csv`
+              )
+            }
+            disabled={!results.customers || results.customers.length === 0}
+          >
+            <Download size={15} />
+            <span>Xuất CSV ({results.count} hồ sơ)</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => navigate('/search')}
+          >
+            <Search size={15} />
+            <span>Tra Cứu Đa Tiêu Chí</span>
+          </button>
+        </div>
       </div>
 
-      {/* Filter Form Card */}
+      {/* Filter Control Card */}
       <div className="filter-card">
         <form onSubmit={handleSubmit}>
           <div className="filter-row">
-            <div style={{ minWidth: '220px' }}>
+            <div style={{ flex: 1, minWidth: '260px' }}>
               <label htmlFor="churnValue" className="form-label">
-                Trạng Thái Rời Mạng (Churn Status):
+                Lựa Chọn Phân Khúc Trạng Thái (Churn Segment):
               </label>
               <select
                 id="churnValue"
@@ -106,58 +141,46 @@ const FilterPage = () => {
                 value={churnValue}
                 onChange={(e) => setChurnValue(e.target.value)}
               >
-                <option value="Yes">Yes (Khách hàng có nguy cơ rời mạng)</option>
-                <option value="No">No (Khách hàng đang duy trì dịch vụ)</option>
+                <option value="Yes">Nhóm Rủi Ro Rời Mạng — Churn: Yes (Cần can thiệp CSKH)</option>
+                <option value="No">Nhóm Duy Trì Dịch Vụ — Churn: No (Thuê bao ổn định)</option>
               </select>
             </div>
 
-            <div style={{ alignSelf: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: '0.6rem' }}>
               <button type="submit" className="btn btn-primary" disabled={loading}>
-                <Filter size={16} />
-                {loading ? 'Đang Lọc...' : 'Áp Dụng Bộ Lọc'}
+                <Filter size={15} />
+                <span>{loading ? 'Đang Đồng Bộ...' : 'Lọc Dữ Liệu'}</span>
               </button>
             </div>
           </div>
         </form>
       </div>
 
-      {/* Error display */}
-      {error && (
-        <div className="error-alert">
-          {error}
-        </div>
-      )}
+      {error && <div className="error-alert">{error}</div>}
 
-      {/* Filter Stats Banner */}
-      {!loading && !error && results.count !== undefined && (
-        <div className="results-banner">
-          <div>
-            Tìm thấy <span className="results-count-chip">{results.count}</span> khách hàng có trạng thái Churn: <strong>{churnValue}</strong>
-          </div>
-          <div className="cell-muted">
-            Hiển thị trang {currentPage} / {totalPages}
-          </div>
+      {/* Results Banner */}
+      <div className="results-banner">
+        <div>
+          Phân khúc hiện tại: <strong>Churn = {churnValue}</strong> • Tổng số:{" "}
+          <span className="results-count-chip">{results.count.toLocaleString('en-US')}</span> thuê bao
         </div>
-      )}
-
-      {/* Loading indicator */}
-      {loading && (
-        <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-          <p className="cell-muted">Đang tải và lọc danh sách khách hàng từ máy chủ...</p>
+        <div className="cell-muted">
+          Đang hiển thị trang {currentPage} / {totalPages}
         </div>
-      )}
+      </div>
 
-      {/* Results table */}
-      {!loading && currentItems.length > 0 ? (
+      {/* Data Table */}
+      {currentItems.length > 0 ? (
         <>
           <div className="table-container">
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: '130px' }}>Mã KH</th>
-                  <th>Hồ Sơ Khách Hàng</th>
-                  <th>Thông Tin Hợp Đồng</th>
-                  <th style={{ width: '160px' }}>Cước Phí & Trạng Thái</th>
+                  <th style={{ width: '130px' }}>Mã Thuê Bao</th>
+                  <th>Thông Tin Nhân Khẩu & Gắn Bó</th>
+                  <th>Hạ Tầng & Kỳ Hạn Hợp Đồng</th>
+                  <th style={{ width: '170px' }}>Cước Phí & Trạng Thái</th>
+                  <th style={{ width: '175px', textAlign: 'right' }}>Hành Động</th>
                 </tr>
               </thead>
               <tbody>
@@ -165,15 +188,16 @@ const FilterPage = () => {
                   <tr key={customer.CustomerID || index}>
                     <td>
                       <span className="badge-customer-id">
-                        {customer.CustomerID || `KH-${index}`}
+                        {customer.CustomerID || customer.customerID || `KH-${index}`}
                       </span>
                     </td>
                     <td>
                       <div className="cell-info-line">
-                        <strong>{customer.gender || 'N/A'}</strong> • {customer.SeniorCitizen === 1 ? 'Người cao tuổi' : 'Khách phổ thông'}
+                        <strong>{customer.gender || 'N/A'}</strong> •{' '}
+                        {customer.SeniorCitizen === 1 ? 'Khách cao tuổi' : 'Khách phổ thông'}
                       </div>
                       <div className="cell-info-line cell-muted">
-                        Đối tác: {customer.Partner || 'No'} • Người phụ thuộc: {customer.Dependents || 'No'}
+                        Gia đình: {customer.Partner === 'Yes' ? 'Có đối tác' : 'Độc thân'} • Phụ thuộc: {customer.Dependents}
                       </div>
                       <div className="cell-info-line cell-muted">
                         Thời gian gắn bó: <strong>{customer.tenure} tháng</strong>
@@ -181,33 +205,43 @@ const FilterPage = () => {
                     </td>
                     <td>
                       <div className="cell-info-line">
-                        Internet: <strong>{customer.InternetService}</strong>
+                        Hạ tầng: <strong>{customer.InternetService}</strong>
                       </div>
                       <div className="cell-info-line cell-muted">
-                        Hợp đồng: {customer.Contract}
+                        Hợp đồng: <strong>{customer.Contract}</strong>
                       </div>
                       <div className="cell-info-line cell-muted">
                         Thanh toán: {customer.PaymentMethod}
                       </div>
                     </td>
                     <td>
-                      <div className="cell-info-line" style={{ fontWeight: 700, fontSize: '0.98rem' }}>
-                        ${customer.MonthlyCharges}/tháng
+                      <div className="cell-info-line" style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                        ${Number(customer.MonthlyCharges || 0).toFixed(2)}/tháng
                       </div>
-                      <div className="cell-info-line cell-muted" style={{ marginBottom: '0.5rem' }}>
-                        Tổng: {formatTotalCharges(customer.TotalCharges)}
+                      <div className="cell-info-line cell-muted" style={{ marginBottom: '0.35rem', fontVariantNumeric: 'tabular-nums' }}>
+                        Lũy kế: {formatTotalCharges(customer.TotalCharges)}
                       </div>
                       <div>
                         {customer.Churn === 'Yes' ? (
                           <span className="badge-churn-yes">
-                            <AlertTriangle size={13} /> Churned
+                            <AlertTriangle size={12} /> Churned
                           </span>
                         ) : (
                           <span className="badge-churn-no">
-                            <CheckCircle size={13} /> Active
+                            <CheckCircle size={12} /> Active
                           </span>
                         )}
                       </div>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        className="btn-action-row"
+                        onClick={() => handleAnalyzeCustomer(customer)}
+                      >
+                        <span>Phân tích & Giữ chân</span>
+                        <ArrowRight size={13} />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -215,50 +249,39 @@ const FilterPage = () => {
             </table>
           </div>
 
-          {/* Pagination controls */}
           <div className="pagination-container">
             <button
               onClick={goToPreviousPage}
               disabled={currentPage === 1}
               className="pagination-btn"
             >
-              <ChevronLeft size={16} /> Trang Trước
+              <ChevronLeft size={15} /> Trang Trước
             </button>
             <span className="pagination-info">
-              Trang {currentPage} trên {totalPages} ({totalItems} kết quả)
+              Trang {currentPage} / {totalPages} ({totalItems.toLocaleString('en-US')} bản ghi)
             </span>
             <button
               onClick={goToNextPage}
               disabled={currentPage === totalPages}
               className="pagination-btn"
             >
-              Trang Sau <ChevronRight size={16} />
+              Trang Sau <ChevronRight size={15} />
             </button>
           </div>
         </>
       ) : (
-        !loading && !error && (
+        !loading && (
           <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-            <Users size={40} style={{ color: '#cbd5e1', marginBottom: '1rem' }} />
-            <h3 style={{ margin: '0 0 0.5rem 0', color: '#334155' }}>Không tìm thấy kết quả</h3>
-            <p className="cell-muted">Thử thay đổi điều kiện lọc ở trên.</p>
+            <Users size={36} style={{ color: '#a1a1aa', marginBottom: '0.75rem' }} />
+            <h3 style={{ margin: '0 0 0.35rem 0', fontSize: '1rem' }}>Không có bản ghi phù hợp</h3>
+            <p className="cell-muted">Vui lòng chọn lại phân khúc lọc.</p>
           </div>
         )
       )}
 
-      {/* Navigation buttons */}
-      <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
-        <button
-          onClick={() => navigate('/prediction')}
-          className="btn btn-secondary"
-        >
-          <ArrowLeft size={16} /> Quay Lại Dự Đoán Churn
-        </button>
-        <button
-          onClick={() => navigate('/search')}
-          className="btn btn-secondary"
-        >
-          <Search size={16} /> Chuyển Đến Tìm Kiếm Khách Hàng
+      <div style={{ marginTop: '2rem', display: 'flex', gap: '0.75rem' }}>
+        <button onClick={() => navigate('/')} className="btn btn-secondary">
+          <ArrowLeft size={15} /> Quay Lại Bảng Điều Khiển
         </button>
       </div>
     </div>

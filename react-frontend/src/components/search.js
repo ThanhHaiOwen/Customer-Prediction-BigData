@@ -1,6 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, RotateCcw, ChevronLeft, ChevronRight, ArrowLeft, Filter, CheckCircle, AlertTriangle, Users } from 'lucide-react';
+import {
+  Search,
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  ArrowLeft,
+  Filter,
+  CheckCircle,
+  AlertTriangle,
+  Users,
+  Download,
+  ArrowRight
+} from 'lucide-react';
+import {
+  searchCustomersCached,
+  exportCustomersToCSV,
+  PRIORITY_WATCHLIST
+} from '../services/dataCache';
 
 const SearchCustomerPage = () => {
   const [searchParams, setSearchParams] = useState({
@@ -9,7 +26,7 @@ const SearchCustomerPage = () => {
     totalChargesMax: '',
     contract: ''
   });
-  const [results, setResults] = useState([]);
+  const [results, setResults] = useState(PRIORITY_WATCHLIST);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
@@ -18,73 +35,69 @@ const SearchCustomerPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Handle inputs
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setSearchParams(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  // Search API
-  const searchCustomers = async () => {
+  const executeSearch = useCallback(async (params) => {
     setLoading(true);
     setError(null);
-
     try {
-      const queryParams = new URLSearchParams();
-      if (searchParams.customerID) queryParams.append('customerID', searchParams.customerID);
-      if (searchParams.totalChargesMin) queryParams.append('totalChargesMin', searchParams.totalChargesMin);
-      if (searchParams.totalChargesMax) queryParams.append('totalChargesMax', searchParams.totalChargesMax);
-      if (searchParams.contract) queryParams.append('contract', searchParams.contract);
-
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://customer-prediction-bigdata.onrender.com';
-      console.log('Searching customers from:', `${apiUrl}/api/search-customers?${queryParams.toString()}`);
-      const response = await fetch(`${apiUrl}/api/search-customers?${queryParams.toString()}`);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Something went wrong');
-      }
-
-      const data = await response.json();
-      console.log('Search results:', data);
+      const data = await searchCustomersCached(params);
       setResults(data.customers || []);
-      setCurrentPage(1); // Reset to page 1 on new search
+      setCurrentPage(1);
     } catch (err) {
       console.error('Search error:', err);
-      if (err.name === 'TypeError' && err.message.includes('fetch')) {
-        setError("Không thể kết nối đến server Backend hoặc server đang khởi động. Vui lòng thử lại sau 30 giây.");
-      } else {
-        setError(err.message);
-      }
+      setError("Đang hiển thị dữ liệu đệm nội bộ. Máy chủ đang khởi động, vui lòng thử lại sau vài giây.");
     } finally {
       setLoading(false);
     }
-  };
-
-  // Load initial search on mount
-  useEffect(() => {
-    searchCustomers();
-    // eslint-disable-next-line
   }, []);
+
+  useEffect(() => {
+    executeSearch({
+      customerID: '',
+      totalChargesMin: '',
+      totalChargesMax: '',
+      contract: ''
+    });
+  }, [executeSearch]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    const updated = {
+      ...searchParams,
+      [name]: value
+    };
+    setSearchParams(updated);
+    // Tìm kiếm tức thì trong RAM khi thay đổi bộ lọc
+    executeSearch(updated);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    searchCustomers();
+    executeSearch(searchParams);
   };
 
-  // Pagination calculation
+  const resetForm = () => {
+    const emptyParams = {
+      customerID: '',
+      totalChargesMin: '',
+      totalChargesMax: '',
+      contract: ''
+    };
+    setSearchParams(emptyParams);
+    executeSearch(emptyParams);
+  };
+
+  const handleAnalyzeCustomer = (customer) => {
+    navigate('/prediction', { state: { customer } });
+  };
+
+  // Pagination
   const totalItems = results.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
 
-  // Current page records
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentItems = results.slice(startIndex, endIndex);
 
-  // Navigation handlers
   const goToPreviousPage = () => {
     setCurrentPage((prev) => Math.max(prev - 1, 1));
   };
@@ -93,27 +106,44 @@ const SearchCustomerPage = () => {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   };
 
-  // Reset form
-  const resetForm = () => {
-    setSearchParams({
-      customerID: '',
-      totalChargesMin: '',
-      totalChargesMax: '',
-      contract: ''
-    });
-  };
-
   return (
     <div className="page-wrapper">
-      {/* Page Header */}
-      <div className="page-header">
-        <h1 className="page-header-title">
-          <Search className="title-icon" size={28} />
-          Tra Cứu Khách Hàng Đa Tiêu Chí (Customer Search)
-        </h1>
-        <p className="page-header-sub">
-          Tìm kiếm nhanh chóng hồ sơ khách hàng theo ID, loại hợp đồng và phạm vi cước phí tích lũy (Total Charges).
-        </p>
+      {/* Executive Header */}
+      <div className="executive-header">
+        <div>
+          <div className="eyebrow-label">
+            <Search size={14} />
+            <span>TRUY VẤN CƠ SỞ DỮ LIỆU THUÊ BAO THỜI GIAN THỰC</span>
+          </div>
+          <h1 className="page-header-title">
+            Tra Cứu Hồ Sơ Khách Hàng Đa Tiêu Chí
+          </h1>
+          <p className="page-header-sub">
+            Tìm kiếm tức thì theo mã định danh thuê bao, loại kỳ hạn hợp đồng và biên độ tổng doanh thu lũy kế (LTV).
+          </p>
+        </div>
+
+        <div className="header-actions">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() =>
+              exportCustomersToCSV(results, `Ket_Qua_Tra_Cuu_${results.length}_HoSo.csv`)
+            }
+            disabled={results.length === 0}
+          >
+            <Download size={15} />
+            <span>Xuất CSV ({results.length.toLocaleString('en-US')} hồ sơ)</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => navigate('/filter')}
+          >
+            <Filter size={15} />
+            <span>Phân Khúc Churn</span>
+          </button>
+        </div>
       </div>
 
       {/* Search Form Card */}
@@ -121,20 +151,20 @@ const SearchCustomerPage = () => {
         <form onSubmit={handleSubmit}>
           <div className="search-grid">
             <div>
-              <label htmlFor="customerID" className="form-label">Mã Khách Hàng (Customer ID):</label>
+              <label htmlFor="customerID" className="form-label">Mã Thuê Bao (Customer ID):</label>
               <input
                 type="text"
                 id="customerID"
                 name="customerID"
                 className="form-input"
-                placeholder="Ví dụ: 7590-VHVEG"
+                placeholder="Nhập mã (VD: 7590-VHVEG)..."
                 value={searchParams.customerID}
                 onChange={handleChange}
               />
             </div>
 
             <div>
-              <label htmlFor="contract" className="form-label">Loại Hợp Đồng (Contract Type):</label>
+              <label htmlFor="contract" className="form-label">Kỳ Hạn Hợp Đồng (Contract):</label>
               <select
                 id="contract"
                 name="contract"
@@ -142,15 +172,15 @@ const SearchCustomerPage = () => {
                 value={searchParams.contract}
                 onChange={handleChange}
               >
-                <option value="">Tất Cả Loại Hợp Đồng</option>
-                <option value="Month-to-month">Month-to-month (Từng tháng)</option>
-                <option value="One year">One year (1 năm)</option>
-                <option value="Two year">Two year (2 năm)</option>
+                <option value="">Tất Cả Kỳ Hạn Hợp Đồng</option>
+                <option value="Month-to-month">Month-to-month (Theo tháng)</option>
+                <option value="One year">One year (Kỳ hạn 1 năm)</option>
+                <option value="Two year">Two year (Kỳ hạn 2 năm)</option>
               </select>
             </div>
 
             <div>
-              <label htmlFor="totalChargesMin" className="form-label">Tổng Cước Tối Thiểu ($ Min):</label>
+              <label htmlFor="totalChargesMin" className="form-label">Tổng Chi Tiêu Tối Thiểu ($ Min):</label>
               <input
                 type="number"
                 id="totalChargesMin"
@@ -164,7 +194,7 @@ const SearchCustomerPage = () => {
             </div>
 
             <div>
-              <label htmlFor="totalChargesMax" className="form-label">Tổng Cước Tối Đa ($ Max):</label>
+              <label htmlFor="totalChargesMax" className="form-label">Tổng Chi Tiêu Tối Đa ($ Max):</label>
               <input
                 type="number"
                 id="totalChargesMax"
@@ -178,62 +208,42 @@ const SearchCustomerPage = () => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-            <button
-              type="button"
-              onClick={resetForm}
-              className="btn btn-secondary"
-            >
-              <RotateCcw size={16} /> Đặt Lại Form
+          <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'flex-end' }}>
+            <button type="button" onClick={resetForm} className="btn btn-secondary">
+              <RotateCcw size={15} /> Đặt Lại Bộ Lọc
             </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={loading}
-            >
-              <Search size={16} /> {loading ? 'Đang Tìm...' : 'Tìm Kiếm'}
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              <Search size={15} /> {loading ? 'Đang Truy Vấn...' : 'Áp Dụng Truy Vấn'}
             </button>
           </div>
         </form>
       </div>
 
-      {/* Error alert */}
-      {error && (
-        <div className="error-alert">
-          {error}
-        </div>
-      )}
+      {error && <div className="error-alert">{error}</div>}
 
-      {/* Results banner */}
-      {!loading && !error && (
-        <div className="results-banner">
-          <div>
-            Tìm thấy <span className="results-count-chip">{totalItems}</span> khách hàng phù hợp điều kiện
-          </div>
-          <div className="cell-muted">
-            Hiển thị trang {currentPage} / {totalPages}
-          </div>
+      {/* Results Banner */}
+      <div className="results-banner">
+        <div>
+          Kết quả truy vấn:{" "}
+          <span className="results-count-chip">{totalItems.toLocaleString('en-US')}</span> hồ sơ khớp điều kiện
         </div>
-      )}
-
-      {/* Loading */}
-      {loading && (
-        <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-          <p className="cell-muted">Đang tìm kiếm hồ sơ khách hàng trong cơ sở dữ liệu...</p>
+        <div className="cell-muted">
+          Đang hiển thị trang {currentPage} / {totalPages}
         </div>
-      )}
+      </div>
 
       {/* Results Table */}
-      {!loading && currentItems.length > 0 ? (
+      {currentItems.length > 0 ? (
         <>
           <div className="table-container">
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: '130px' }}>Mã KH</th>
-                  <th>Hồ Sơ Khách Hàng</th>
-                  <th>Thông Tin Dịch Vụ & Hợp Đồng</th>
-                  <th style={{ width: '160px' }}>Cước Phí & Trạng Thái</th>
+                  <th style={{ width: '130px' }}>Mã Thuê Bao</th>
+                  <th>Thông Tin Nhân Khẩu & Gắn Bó</th>
+                  <th>Hạ Tầng & Kỳ Hạn Hợp Đồng</th>
+                  <th style={{ width: '170px' }}>Cước Phí & Trạng Thái</th>
+                  <th style={{ width: '175px', textAlign: 'right' }}>Hành Động</th>
                 </tr>
               </thead>
               <tbody>
@@ -241,15 +251,16 @@ const SearchCustomerPage = () => {
                   <tr key={customer.CustomerID || index}>
                     <td>
                       <span className="badge-customer-id">
-                        {customer.CustomerID || `KH-${index}`}
+                        {customer.CustomerID || customer.customerID || `KH-${index}`}
                       </span>
                     </td>
                     <td>
                       <div className="cell-info-line">
-                        <strong>{customer.gender || 'N/A'}</strong> • {customer.SeniorCitizen === 1 ? 'Người cao tuổi' : 'Khách phổ thông'}
+                        <strong>{customer.gender || 'N/A'}</strong> •{' '}
+                        {customer.SeniorCitizen === 1 ? 'Khách cao tuổi' : 'Khách phổ thông'}
                       </div>
                       <div className="cell-info-line cell-muted">
-                        Đối tác: {customer.Partner || 'No'} • Người phụ thuộc: {customer.Dependents || 'No'}
+                        Gia đình: {customer.Partner === 'Yes' ? 'Có đối tác' : 'Độc thân'} • Phụ thuộc: {customer.Dependents}
                       </div>
                       <div className="cell-info-line cell-muted">
                         Thời gian gắn bó: <strong>{customer.tenure} tháng</strong>
@@ -257,33 +268,43 @@ const SearchCustomerPage = () => {
                     </td>
                     <td>
                       <div className="cell-info-line">
-                        Internet: <strong>{customer.InternetService}</strong>
+                        Hạ tầng: <strong>{customer.InternetService}</strong>
                       </div>
                       <div className="cell-info-line cell-muted">
-                        Hợp đồng: {customer.Contract}
+                        Hợp đồng: <strong>{customer.Contract}</strong>
                       </div>
                       <div className="cell-info-line cell-muted">
                         Thanh toán: {customer.PaymentMethod}
                       </div>
                     </td>
                     <td>
-                      <div className="cell-info-line" style={{ fontWeight: 700, fontSize: '0.98rem' }}>
-                        ${customer.MonthlyCharges}/tháng
+                      <div className="cell-info-line" style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                        ${Number(customer.MonthlyCharges || 0).toFixed(2)}/tháng
                       </div>
-                      <div className="cell-info-line cell-muted" style={{ marginBottom: '0.5rem' }}>
-                        Tổng: ${customer.TotalCharges}
+                      <div className="cell-info-line cell-muted" style={{ marginBottom: '0.35rem', fontVariantNumeric: 'tabular-nums' }}>
+                        Lũy kế: ${customer.TotalCharges}
                       </div>
                       <div>
                         {customer.Churn === 'Yes' ? (
                           <span className="badge-churn-yes">
-                            <AlertTriangle size={13} /> Churned
+                            <AlertTriangle size={12} /> Churned
                           </span>
                         ) : (
                           <span className="badge-churn-no">
-                            <CheckCircle size={13} /> Active
+                            <CheckCircle size={12} /> Active
                           </span>
                         )}
                       </div>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        className="btn-action-row"
+                        onClick={() => handleAnalyzeCustomer(customer)}
+                      >
+                        <span>Phân tích & Giữ chân</span>
+                        <ArrowRight size={13} />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -291,50 +312,39 @@ const SearchCustomerPage = () => {
             </table>
           </div>
 
-          {/* Pagination */}
           <div className="pagination-container">
             <button
               onClick={goToPreviousPage}
               disabled={currentPage === 1}
               className="pagination-btn"
             >
-              <ChevronLeft size={16} /> Trang Trước
+              <ChevronLeft size={15} /> Trang Trước
             </button>
             <span className="pagination-info">
-              Trang {currentPage} trên {totalPages} ({totalItems} hồ sơ)
+              Trang {currentPage} / {totalPages} ({totalItems.toLocaleString('en-US')} bản ghi)
             </span>
             <button
               onClick={goToNextPage}
               disabled={currentPage === totalPages}
               className="pagination-btn"
             >
-              Trang Sau <ChevronRight size={16} />
+              Trang Sau <ChevronRight size={15} />
             </button>
           </div>
         </>
       ) : (
-        !loading && !error && (
+        !loading && (
           <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-            <Users size={40} style={{ color: '#cbd5e1', marginBottom: '1rem' }} />
-            <h3 style={{ margin: '0 0 0.5rem 0', color: '#334155' }}>Không tìm thấy khách hàng nào</h3>
-            <p className="cell-muted">Vui lòng điều chỉnh lại tiêu chí tìm kiếm hoặc bấm "Đặt Lại Form".</p>
+            <Users size={36} style={{ color: '#a1a1aa', marginBottom: '0.75rem' }} />
+            <h3 style={{ margin: '0 0 0.35rem 0', fontSize: '1rem' }}>Không tìm thấy bản ghi khớp điều kiện</h3>
+            <p className="cell-muted">Vui lòng điều chỉnh lại tiêu chí hoặc bấm "Đặt Lại Bộ Lọc".</p>
           </div>
         )
       )}
 
-      {/* Navigation action buttons */}
-      <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
-        <button
-          onClick={() => navigate('/prediction')}
-          className="btn btn-secondary"
-        >
-          <ArrowLeft size={16} /> Quay Lại Dự Đoán Churn
-        </button>
-        <button
-          onClick={() => navigate('/filter')}
-          className="btn btn-secondary"
-        >
-          <Filter size={16} /> Chuyển Đến Bộ Lọc Churn
+      <div style={{ marginTop: '2rem', display: 'flex', gap: '0.75rem' }}>
+        <button onClick={() => navigate('/')} className="btn btn-secondary">
+          <ArrowLeft size={15} /> Quay Lại Bảng Điều Khiển
         </button>
       </div>
     </div>

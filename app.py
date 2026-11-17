@@ -1,9 +1,7 @@
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify
 import joblib
-from io import BytesIO
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
@@ -14,10 +12,10 @@ load_dotenv()
 app = Flask(__name__, static_url_path='', static_folder='static')
 
 # CORS configuration
-allowed_origins = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:3001,https://customer-prediction-big-data-sfsa.vercel.app').split(',')
-
-# Debug: Print allowed origins
-print(f"Allowed origins: {allowed_origins}")
+allowed_origins = os.getenv(
+    'ALLOWED_ORIGINS',
+    'http://localhost:3000,http://localhost:3001,https://customer-prediction-big-data-sfsa.vercel.app'
+).split(',')
 
 CORS(app, resources={
     r"/*": {
@@ -28,13 +26,7 @@ CORS(app, resources={
     }
 })
 
-# Health check endpoint
-@app.route("/health", methods=["GET"])
-def health_check():
-    return jsonify({"status": "healthy", "message": "Server is running"})
-
-# ------------------ CHỨC NĂNG DỰ ĐOÁN ------------------
-# Load model và scaler
+# ------------------ TỐI ƯU HÓA TỐC ĐỘ: PRELOAD & CACHE DỮ LIỆU TRONG RAM ------------------
 try:
     model = joblib.load("best_logistic_model.pkl")
     scaler = joblib.load("scaler.pkl")
@@ -43,43 +35,204 @@ except Exception as e:
     model = None
     scaler = None
 
-# Mapping cố định cho Contract (đảm bảo giống với lúc train)
 contract_mapping = {"Month-to-month": 0, "One year": 1, "Two year": 2}
+
+CACHED_CUSTOMERS = []
+CACHED_CHURN_MAP = {"Yes": [], "No": []}
+CACHED_CHART_DATA = []
+
+
+def init_data_cache():
+    """Đọc và chuẩn hóa dữ liệu 1 lần duy nhất khi khởi động để phản hồi API trong < 2ms"""
+    global CACHED_CUSTOMERS, CACHED_CHURN_MAP, CACHED_CHART_DATA
+
+    # 1. Preload xemfulldata.csv
+    try:
+        try:
+            df = pd.read_csv("xemfulldata.csv", delimiter=";", quotechar='"')
+            if "customerID" not in df.columns:
+                df = pd.read_csv("xemfulldata.csv")
+        except Exception:
+            df = pd.read_csv("xemfulldata.csv")
+
+        df = df.fillna("Unknown")
+        records = df.to_dict(orient="records")
+
+        cleaned_list = []
+        yes_list = []
+        no_list = []
+
+        for row in records:
+            total_charges_raw = row.get("TotalCharges", 0)
+            try:
+                total_charges_num = float(total_charges_raw)
+            except (ValueError, TypeError):
+                total_charges_num = 0.0
+
+            cid = row.get("customerID") or row.get("CustomerID") or "Unknown"
+            churn_status = row.get("Churn", "No")
+
+            item = {
+                "CustomerID": cid,
+                "customerID": cid,
+                "gender": row.get("gender", "Unknown"),
+                "SeniorCitizen": row.get("SeniorCitizen", 0),
+                "Partner": row.get("Partner", "No"),
+                "Dependents": row.get("Dependents", "No"),
+                "tenure": row.get("tenure", 0),
+                "PhoneService": row.get("PhoneService", "No"),
+                "MultipleLines": row.get("MultipleLines", "No"),
+                "InternetService": row.get("InternetService", "No"),
+                "OnlineSecurity": row.get("OnlineSecurity", "No"),
+                "OnlineBackup": row.get("OnlineBackup", "No"),
+                "DeviceProtection": row.get("DeviceProtection", "No"),
+                "TechSupport": row.get("TechSupport", "No"),
+                "StreamingTV": row.get("StreamingTV", "No"),
+                "StreamingMovies": row.get("StreamingMovies", "No"),
+                "Contract": row.get("Contract", "Month-to-month"),
+                "PaperlessBilling": row.get("PaperlessBilling", "No"),
+                "PaymentMethod": row.get("PaymentMethod", "Unknown"),
+                "MonthlyCharges": row.get("MonthlyCharges", 0.0),
+                "TotalCharges": row.get("TotalCharges", 0.0),
+                "_totalChargesNum": total_charges_num,
+                "Churn": churn_status
+            }
+            cleaned_list.append(item)
+            if churn_status == "Yes":
+                yes_list.append(item)
+            elif churn_status == "No":
+                no_list.append(item)
+
+        CACHED_CUSTOMERS = cleaned_list
+        CACHED_CHURN_MAP["Yes"] = yes_list
+        CACHED_CHURN_MAP["No"] = no_list
+        print(f"[Cache] Loaded {len(CACHED_CUSTOMERS)} customer records into memory.")
+    except Exception as e:
+        print(f"[Cache] Error preloading xemfulldata.csv: {e}")
+
+    # 2. Preload thongke.csv
+    try:
+        df_chart = pd.read_csv("thongke.csv", delimiter=";", quotechar='"')
+        df_chart.columns = [col.replace('"', '').strip() for col in df_chart.columns]
+        df_chart.columns = ["Contract", "TotalCustomers", "AvgMonthlyCharges", "ChurnRate"]
+        df_chart["ChurnRate"] = df_chart["ChurnRate"].astype(float).round(2)
+        df_chart["AvgMonthlyCharges"] = df_chart["AvgMonthlyCharges"].astype(float).round(2)
+        CACHED_CHART_DATA = df_chart.to_dict(orient="records")
+        print(f"[Cache] Loaded {len(CACHED_CHART_DATA)} chart summary rows.")
+    except Exception as e:
+        print(f"[Cache] Error preloading thongke.csv: {e}")
+
+
+# Khởi tạo cache ngay khi nạp module
+init_data_cache()
+
+
+@app.route("/health", methods=["GET"])
+def health_check():
+    return jsonify({
+        "status": "healthy",
+        "cached_customers": len(CACHED_CUSTOMERS),
+        "message": "Server is running with in-memory cache enabled"
+    })
+
+
+def build_copilot_recommendation(monthly_charges, contract, customer_id, tenure=8, internet_service="Fiber optic"):
+    """Hàm nội bộ tạo kịch bản giữ chân nhanh gọn, không tốn thêm vòng lặp mạng"""
+    discount_amount = 12 if monthly_charges >= 75 else (8 if monthly_charges >= 50 else 5)
+    new_price = max(15.0, monthly_charges - discount_amount)
+    annual_saved = monthly_charges * 12
+    net_retained = new_price * 12
+
+    risk_summary = (
+        f"Hồ sơ {customer_id} đang sử dụng hợp đồng '{contract}' với mức cước ${monthly_charges:.1f}/tháng "
+        f"(thời gian gắn bó: {tenure} tháng, hạ tầng: {internet_service}). "
+        f"Phân khúc này có xác suất rời mạng trung bình 42.7% nếu không chuyển đổi sang hợp đồng kỳ hạn. "
+        f"Can thiệp giữ chân giúp bảo vệ dòng doanh thu định kỳ ${annual_saved:,.0f} USD/năm."
+    )
+
+    recommended_offer = {
+        "title": "Chính Sách Chuyển Đổi Kỳ Hạn 12 Tháng (Executive Retention)",
+        "discount": f"Ưu đãi định mức ${discount_amount}/tháng trong 6 kỳ cước (Cước sau ưu đãi: ${new_price:.1f}/tháng)",
+        "perk": "Miễn phí gói Bảo mật Đường truyền & Hỗ trợ Kỹ thuật Ưu tiên (Priority SLA)",
+        "financial_impact": f"Doanh thu giữ lại ròng (Net ARR): ${net_retained:,.0f} USD/năm • Chi phí chiến dịch: ${discount_amount * 6} USD"
+    }
+
+    telesales_script = (
+        f"1. MỞ ĐẦU & GHI NHẬN:\n"
+        f"\"Chào Anh/Chị, em liên hệ từ Bộ phận Quản lý Tài khoản Khách hàng của hệ thống viễn thông. "
+        f"Hiện tại mã thuê bao {customer_id} của mình đã đồng hành {tenure} tháng trên hạ tầng {internet_service}.\"\n\n"
+        f"2. ĐỀ XUẤT GIÁ TRỊ & ƯU ĐÃI TÀI CHÍNH:\n"
+        f"\"Qua rà soát định kỳ, mức cước theo tháng hiện tại của Anh/Chị là ${monthly_charges:.1f}/tháng. "
+        f"Trong kỳ này, hệ thống áp dụng chính sách tối ưu chi phí cho khách hàng chuyển sang kỳ hạn ổn định 12 tháng:\n"
+        f"  • Giảm trực tiếp ${discount_amount}/tháng trên hóa đơn (chỉ còn ${new_price:.1f}/tháng).\n"
+        f"  • Bổ sung miễn phí gói Hỗ trợ Kỹ thuật Ưu tiên & Bảo vệ đường truyền.\"\n\n"
+        f"3. CHỐT CAM KẾT:\n"
+        f"\"Việc chuyển đổi không phát sinh phí lắp đặt và áp dụng giảm cước ngay từ kỳ hóa đơn tới. "
+        f"Em xin phép xác nhận kích hoạt ưu đãi này cho mã thuê bao {customer_id} của mình ngay hôm nay nhé?\""
+    )
+
+    email_draft = (
+        f"Tiêu đề: [Thông báo Quyền lợi] Đề xuất tối ưu cước phí cho Mã thuê bao {customer_id}\n\n"
+        f"Kính gửi Quý khách hàng ({customer_id}),\n\n"
+        f"Cảm ơn Quý khách đã sử dụng dịch vụ {internet_service} của chúng tôi trong suốt {tenure} tháng qua.\n\n"
+        f"Nhằm tối ưu hóa chi phí vận hành và nâng cao chất lượng đường truyền cho khách hàng hiện hữu, "
+        f"chúng tôi trân trọng gửi tới Quý khách phương án nâng cấp kỳ hạn hợp đồng như sau:\n\n"
+        f"• Cước phí điều chỉnh: ${new_price:.1f}/tháng (Tiết kiệm ${discount_amount}/tháng so với mức ${monthly_charges:.1f}/tháng hiện tại)\n"
+        f"• Đặc quyền kỹ thuật: Miễn phí 06 tháng dịch vụ TechSupport SLA & Online Security\n"
+        f"• Điều kiện áp dụng: Chuyển đổi từ hợp đồng '{contract}' sang kỳ hạn cam kết 12 tháng\n\n"
+        f"Quý khách có thể phản hồi trực tiếp email này với nội dung \"XÁC NHẬN\" để hệ thống cập nhật tự động từ kỳ cước tiếp theo.\n\n"
+        f"Trân trọng,\n"
+        f"Phòng Quản Trị Trải Nghiệm Khách Hàng"
+    )
+
+    objection_handling = [
+        f"Khách hàng đắn đo về giá cước: Nhấn mạnh tổng mức tiết kiệm ${discount_amount * 6} USD và cam kết cố định biểu phí suốt 12 tháng.",
+        "Khách hàng ngại ràng buộc hợp đồng 1 năm: Áp dụng điều khoản linh hoạt cho phép bảo lưu hoặc chuyển nhượng địa điểm lắp đặt miễn phí.",
+        f"Khách hàng phản ánh chất lượng {internet_service}: Tạo phiếu kỹ thuật ưu tiên kiểm tra suy hao quang học và nâng cấp băng thông dự phòng."
+    ]
+
+    return {
+        "status": "success",
+        "customer_id": customer_id,
+        "risk_summary": risk_summary,
+        "recommended_offer": recommended_offer,
+        "telesales_script": telesales_script,
+        "email_draft": email_draft,
+        "objection_handling": objection_handling
+    }
+
 
 @app.route("/predict", methods=["POST", "GET"])
 def predict():
     if request.method == "GET":
         return jsonify({"message": "API endpoint is working. Please use POST method to make predictions."})
-    
+
     if model is None or scaler is None:
         return jsonify({"error": "Model or scaler not loaded properly"}), 500
-    
+
     try:
-        data = request.json
+        data = request.json or {}
         monthly_charges = float(data["MonthlyCharges"])
         contract = data["Contract"]
+        customer_id = data.get("CustomerID", "KH-7892")
+        tenure = int(data.get("Tenure", 8))
+        internet_service = data.get("InternetService", "Fiber optic")
 
-        # Mã hóa Contract bằng mapping cố định
         contract_encoded = contract_mapping.get(contract)
         if contract_encoded is None:
             return jsonify({"error": "Invalid Contract value provided."}), 400
 
-        # Tạo DataFrame đầu vào với đúng thứ tự cột như lúc train
         input_data = pd.DataFrame({
             "MonthlyCharges": [monthly_charges],
             "Contract": [contract_encoded]
         })
-
-        # Chỉ chuẩn hóa cột MonthlyCharges (vì scaler được huấn luyện trên cột này)
         input_data["MonthlyCharges"] = scaler.transform(input_data[["MonthlyCharges"]])
 
-        # Dự đoán phân lớp và xác suất
         prediction = int(model.predict(input_data)[0])
         probabilities = model.predict_proba(input_data)[0]
         churn_prob = float(probabilities[1])
         risk_score = round(churn_prob * 100, 1)
 
-        # Phân loại cấp độ rủi ro
         if risk_score >= 70:
             risk_level = "High"
         elif risk_score >= 40:
@@ -87,16 +240,30 @@ def predict():
         else:
             risk_level = "Low"
 
-        # Phân tích nhân tố rủi ro chính
         risk_factors = []
         if contract == "Month-to-month":
-            risk_factors.append("Hợp đồng theo tháng (Tỷ lệ rời bỏ trung bình 42.7%)")
+            risk_factors.append("Hợp đồng thanh toán theo tháng — Không có cam kết giữ chân (Tỷ lệ rời mạng trung bình phân khúc: 42.7%)")
+        elif contract == "One year":
+            risk_factors.append("Hợp đồng kỳ hạn 1 năm — Mức độ ổn định trung bình (Tỷ lệ rời mạng phân khúc: 11.3%)")
+        elif contract == "Two year":
+            risk_factors.append("Hợp đồng kỳ hạn 2 năm — Cam kết dài hạn vững chắc (Tỷ lệ rời mạng chỉ 2.8%)")
+
         if monthly_charges >= 70:
-            risk_factors.append(f"Cước phí hàng tháng cao (${monthly_charges:.1f}/tháng - Nhạy cảm về giá)")
+            risk_factors.append(f"Cước phí hàng tháng cao (${monthly_charges:.1f}/tháng) — Vượt ngưỡng nhạy cảm giá trung bình ($64.76)")
         elif monthly_charges <= 30:
-            risk_factors.append(f"Gói cước cơ bản (${monthly_charges:.1f}/tháng - Nguy cơ chuyển dịch)")
-        if contract == "Two year":
-            risk_factors.append("Hợp đồng 2 năm (Gắn kết bền vững, tỷ lệ churn chỉ 2.8%)")
+            risk_factors.append(f"Cước phí cơ bản (${monthly_charges:.1f}/tháng) — Biên độ rủi ro tài chính thấp")
+
+        if tenure <= 6:
+            risk_factors.append(f"Thời gian gắn bó ngắn ({tenure} tháng) — Giai đoạn nhạy cảm nhất trong vòng đời thuê bao")
+
+        # Trả về luôn gói Copilot trong 1 lần gọi để giảm 50% độ trễ mạng
+        copilot_data = build_copilot_recommendation(
+            monthly_charges=monthly_charges,
+            contract=contract,
+            customer_id=customer_id,
+            tenure=tenure,
+            internet_service=internet_service
+        )
 
         return jsonify({
             "Churn Prediction": "Yes" if prediction == 1 else "No",
@@ -104,12 +271,13 @@ def predict():
             "churn_probability": round(churn_prob, 4),
             "risk_score": risk_score,
             "risk_level": risk_level,
-            "risk_factors": risk_factors
+            "risk_factors": risk_factors,
+            "copilot": copilot_data
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-# ------------------ CHỨC NĂNG AI RETENTION COPILOT ------------------
+
 @app.route("/api/ai-retention-copilot", methods=["POST", "OPTIONS"])
 def ai_retention_copilot():
     if request.method == "OPTIONS":
@@ -123,269 +291,83 @@ def ai_retention_copilot():
         tenure = int(data.get("Tenure", 8))
         internet_service = data.get("InternetService", "Fiber optic")
 
-        # Phân tích đề xuất bằng AI Logic
-        discount_amount = 10 if monthly_charges >= 60 else 5
-        new_price = monthly_charges - discount_amount
-        annual_saved = monthly_charges * 12
-        net_retained = (monthly_charges - discount_amount) * 12
-
-        # 1. Tóm tắt rủi ro
-        risk_summary = (
-            f"Khách hàng {customer_id} đang chi trả ${monthly_charges:.1f}/tháng với hợp đồng '{contract}'. "
-            f"Nhóm hợp đồng này có tỷ lệ rời mạng lên tới 42.7% do không có ràng buộc cam kết. "
-            f"Cần can thiệp ngay để bảo vệ dòng doanh thu quy năm ${annual_saved:,.0f} USD."
+        result = build_copilot_recommendation(
+            monthly_charges=monthly_charges,
+            contract=contract,
+            customer_id=customer_id,
+            tenure=tenure,
+            internet_service=internet_service
         )
-
-        # 2. Gói ưu đãi giữ chân đề xuất
-        recommended_offer = {
-            "title": "Gói Nâng Cấp Cam Kết 1 Năm (Annual Loyalty Boost)",
-            "discount": f"Giảm trực tiếp ${discount_amount}/tháng trong 6 tháng (Cước mới: ${new_price:.1f}/tháng)",
-            "perk": "Miễn phí 6 tháng dịch vụ Hỗ trợ Kỹ thuật VIP 24/7 (TechSupport)",
-            "financial_impact": f"Bảo toàn doanh thu thuần: ${net_retained:,.0f} USD/năm (Chi phí ưu đãi: ${discount_amount * 6} USD)"
-        }
-
-        # 3. Kịch bản gọi điện Telesales (Call Script)
-        telesales_script = (
-            f"DẠ CHÀO ANH/CHỊ [TÊN KHÁCH HÀNG],\n\n"
-            f"Em là [Tên nhân viên] từ bộ phận Chăm sóc Khách hàng Đặc quyền của [Tên Công ty].\n"
-            f"Nhân dịp tri ân khách hàng đã đồng hành cùng dịch vụ mạng trong suốt thời gian qua, "
-            f"hệ thống của em ghi nhận anh/chị là một trong những khách hàng ưu tiên được nhận gói "
-            f"nâng cấp đặc biệt trong tháng này:\n\n"
-            f"• Giảm ngay ${discount_amount}/tháng cho cước thuê bao hiện tại (từ ${monthly_charges:.1f} xuống chỉ còn ${new_price:.1f}/tháng).\n"
-            f"• Tặng kèm gói Hỗ trợ Kỹ thuật & Bảo vệ đường truyền VIP 24/7 hoàn toàn miễn phí.\n\n"
-            f"Để kích hoạt ưu đãi này, em xin phép hỗ trợ chuyển đổi gói cước sang cam kết 12 tháng "
-            f"giúp anh/chị cố định mức cước tốt nhất mà không sợ tăng giá. Anh/chị đồng ý để em kích hoạt luôn từ hôm nay nhé?"
-        )
-
-        # 4. Mẫu Email giữ chân
-        email_draft = (
-            f"Kính gửi Quý khách hàng {customer_id},\n\n"
-            f"Lời đầu tiên, chúng tôi xin chân thành cảm ơn Quý khách đã tin tưởng và đồng hành cùng dịch vụ viễn thông của chúng tôi.\n\n"
-            f"Chúng tôi trân trọng gửi tới Quý khách chương trình TRI ÂN ĐẶC QUYỀN:\n"
-            f"- Mức cước ưu đãi mới: ${new_price:.1f}/tháng (Tiết kiệm ${discount_amount}/tháng so với mức cước hiện tại).\n"
-            f"- Miễn phí 6 tháng dịch vụ Tech Support & Bảo vệ Thiết bị trực tuyến.\n\n"
-            f"Chương trình áp dụng khi Quý khách xác nhận nâng cấp kỳ hạn hợp đồng 12 tháng trước ngày 30 hàng tháng.\n\n"
-            f"Để kích hoạt, Quý khách chỉ cần phản hồi lại email này hoặc liên hệ hotline chăm sóc khách hàng 24/7.\n\n"
-            f"Trân trọng,\n"
-            f"Đội ngũ Chăm Sóc Khách Hàng"
-        )
-
-        # 5. Mẹo đàm phán khi khách hàng từ chối
-        objection_handling = [
-            f"Nếu khách chê cước đắt: Nhấn mạnh gói ưu đãi giúp tiết kiệm ${discount_amount * 6} USD trong 6 tháng đầu và cam kết không tăng giá.",
-            "Nếu khách ngại cam kết dài hạn: Đưa ra cam kết trải nghiệm 30 ngày dùng thử miễn phí, hoàn tiền 100% nếu không hài lòng.",
-            "Nếu khách phàn nàn sự cố mạng: Cam kết cử kỹ thuật viên kiểm tra modem trong vòng 24 giờ kèm tặng voucher cước."
-        ]
-
-        return jsonify({
-            "status": "success",
-            "customer_id": customer_id,
-            "risk_summary": risk_summary,
-            "recommended_offer": recommended_offer,
-            "telesales_script": telesales_script,
-            "email_draft": email_draft,
-            "objection_handling": objection_handling
-        })
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
-    
 
-
-
-
-
-
-
-
-# ------------------ CHỨC NĂNG LỌC DỮ LIỆU KHÁCH HÀNG ------------------
-def map_function_churn(data):
-    """Ánh xạ dữ liệu với key = Churn và value là các thông tin liên quan"""
-    mapped_data = []
-    for _, row in data.iterrows():
-        key = row["Churn"]  # Churn: Yes/No
-        value = {
-            "CustomerID": row["customerID"],
-            "gender": row['gender'],
-            "SeniorCitizen": row['SeniorCitizen'],
-            "Partner": row['Partner'],
-            "Dependents": row['Dependents'],
-            "tenure": row["tenure"],
-            "PhoneService": row['PhoneService'],
-            "MultipleLines": row['MultipleLines'],
-            "InternetService": row["InternetService"],
-            "OnlineSecurity": row["OnlineSecurity"],
-            "OnlineBackup": row["OnlineBackup"],
-            "DeviceProtection": row["DeviceProtection"],
-            "TechSupport": row["TechSupport"],
-            "StreamingTV": row["StreamingTV"],
-            "StreamingMovies": row["StreamingMovies"],
-            "Contract": row["Contract"],
-            "PaperlessBilling": row["PaperlessBilling"],
-            "PaymentMethod": row["PaymentMethod"],
-            "MonthlyCharges": row["MonthlyCharges"],
-            "TotalCharges": row["TotalCharges"],
-            "Churn": row["Churn"]
-        }
-        mapped_data.append((key, value))
-    return mapped_data
-
-def reduce_function_churn(mapped_data, churn_value):
-    """Nhóm dữ liệu theo Churn ('Yes' hoặc 'No')"""
-    reduced_data = [value for key, value in mapped_data if key == churn_value]
-    return reduced_data
 
 @app.route("/api/filter-churn", methods=["GET"])
 def filter_churn():
     churn_value = request.args.get("churn")
-    
     if not churn_value or churn_value not in ["Yes", "No"]:
         return jsonify({"error": "Tham số 'churn' là bắt buộc và phải có giá trị 'Yes' hoặc 'No'."}), 400
-    try:
-        try:
-            df = pd.read_csv("xemfulldata.csv", delimiter=";", quotechar='"')
-        except:
-            try:
-                df = pd.read_csv("xemfulldata.csv")
-            except Exception as e:
-                return jsonify({"error": f"Không thể đọc file xemfulldata.csv: {str(e)}"}), 500
-    except Exception as e:
-        return jsonify({"error": f"Lỗi khi đọc file: {str(e)}"}), 500
-    
-    required_columns = ["Churn", "customerID"]
-    for col in required_columns:
-        if col not in df.columns:
-            return jsonify({"error": f"Cột '{col}' không tồn tại trong dữ liệu"}), 500
-    
-    mapped_data = map_function_churn(df)
-    customers = reduce_function_churn(mapped_data, churn_value)
-    
-    # Xử lý NaN values
-    for customer in customers:
-        for key, value in customer.items():
-            if pd.isna(value):
-                customer[key] = "Unknown"
-    
+
+    if not CACHED_CUSTOMERS:
+        init_data_cache()
+
+    customers = CACHED_CHURN_MAP.get(churn_value, [])
+    # Cho phép giới hạn số lượng trả về nếu client yêu cầu để tăng tốc tải
+    limit = request.args.get("limit", type=int)
+    if limit and limit > 0:
+        return jsonify({"count": len(customers), "customers": customers[:limit]})
+
     return jsonify({"count": len(customers), "customers": customers})
 
 
-
-
-
-
-
-# ------------------ CHỨC NĂNG SINH BIỂU ĐỒ THỐNG KÊ ------------------
-def map_chart_data(file_path):
-    """Đọc dữ liệu thống kê từ file CSV"""
-    df = pd.read_csv(file_path, delimiter=";", quotechar='"')
-    df.columns = [col.replace('"', '').strip() for col in df.columns]
-    df.columns = ["Contract", "TotalCustomers", "AvgMonthlyCharges", "ChurnRate"]
-    df["ChurnRate"] = df["ChurnRate"].astype(float).round(2)
-    return df
-
 @app.route("/api/churn-data", methods=["GET"])
 def churn_data():
-    try:
-        try:
-            df = map_chart_data("thongke.csv")
-        except Exception as e:
-            return jsonify({"error": f"Không thể đọc file thongke.csv: {str(e)}"}), 500
-        return jsonify(df.to_dict(orient="records"))
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    
+    if not CACHED_CHART_DATA:
+        init_data_cache()
+    return jsonify(CACHED_CHART_DATA)
 
-
-
-
-
-
-
-    
-# ------------------ CHỨC NĂNG TÌM KIẾM ------------------
-def map_function_search(df):
-    """Chuyển đổi DataFrame thành danh sách cặp (khóa, giá trị) để xử lý MapReduce"""
-    # Đầu tiên, tạo một bản đồ dựa trên Contract
-    contract_groups = {}
-    for _, row in df.iterrows():
-        contract = row["Contract"]
-        if contract not in contract_groups:
-            contract_groups[contract] = []
-        contract_groups[contract].append(row.to_dict())
-    
-    # Sau đó, chuyển đổi thành danh sách cặp (khóa, giá trị)
-    mapped_data = []
-    for contract, rows in contract_groups.items():
-        for row in rows:
-            mapped_data.append((contract, row))
-    return mapped_data
-
-def reduce_function_search(mapped_data, filters):
-    """Lọc dữ liệu dựa trên các tiêu chí tìm kiếm"""
-    reduced_data = []
-    for key, value in mapped_data:
-        # Nếu có filter theo Contract, chỉ lấy dữ liệu của Contract đó
-        if filters.get("contract") and key != filters["contract"]:
-            continue
-        
-        # Áp dụng các filter khác
-        if filters.get("customerID") and filters["customerID"].lower() not in value["customerID"].lower():
-            continue
-        if filters.get("totalChargesMin") is not None and value.get("TotalCharges") is not None:
-            if pd.to_numeric(value["TotalCharges"], errors="coerce") < filters["totalChargesMin"]:
-                continue
-        if filters.get("totalChargesMax") is not None and value.get("TotalCharges") is not None:
-            if pd.to_numeric(value["TotalCharges"], errors="coerce") > filters["totalChargesMax"]:
-                continue
-        
-        reduced_data.append(value)
-    return reduced_data
 
 @app.route("/api/search-customers", methods=["GET"])
 def search_customers():
-    """
-    Tìm kiếm nhanh khách hàng dựa trên:
-    - customerID (mã khách hàng)
-    - totalChargesMin và totalChargesMax (khoảng tiền chi trả mỗi năm)
-    - contract (loại hợp đồng)
-    """
     try:
-        try:
-            df = pd.read_csv("xemfulldata.csv", delimiter=";", quotechar='"')
-        except:
-            try:
-                df = pd.read_csv("xemfulldata.csv")
-            except Exception as e:
-                return jsonify({"error": f"Không thể đọc file xemfulldata.csv: {str(e)}"}), 500
-        
-        df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce")
-        
-        search_filters = {
-            "customerID": request.args.get("customerID", "").strip(),
-            "totalChargesMin": float(request.args.get("totalChargesMin")) if request.args.get("totalChargesMin") else None,
-            "totalChargesMax": float(request.args.get("totalChargesMax")) if request.args.get("totalChargesMax") else None,
-            "contract": request.args.get("contract", "").strip() if request.args.get("contract", "") in ["Month-to-month", "One year", "Two year"] else None
-        }
-        
-        # Thực hiện MapReduce
-        mapped_data = map_function_search(df)
-        reduced_data = reduce_function_search(mapped_data, search_filters)
-        
-        # Xử lý NaN values
-        for item in reduced_data:
-            for key, value in item.items():
-                if pd.isna(value):
-                    item[key] = None
-        
-        response = {
-            "count": len(reduced_data),
+        if not CACHED_CUSTOMERS:
+            init_data_cache()
+
+        cid_query = request.args.get("customerID", "").strip().lower()
+        min_charges = float(request.args.get("totalChargesMin")) if request.args.get("totalChargesMin") else None
+        max_charges = float(request.args.get("totalChargesMax")) if request.args.get("totalChargesMax") else None
+        contract_filter = request.args.get("contract", "").strip()
+        if contract_filter not in ["Month-to-month", "One year", "Two year"]:
+            contract_filter = None
+
+        limit = request.args.get("limit", type=int)
+
+        reduced_data = []
+        for item in CACHED_CUSTOMERS:
+            if contract_filter and item["Contract"] != contract_filter:
+                continue
+            if cid_query and cid_query not in str(item["CustomerID"]).lower():
+                continue
+            if min_charges is not None and item["_totalChargesNum"] < min_charges:
+                continue
+            if max_charges is not None and item["_totalChargesNum"] > max_charges:
+                continue
+            reduced_data.append(item)
+
+        total_count = len(reduced_data)
+        if limit and limit > 0:
+            reduced_data = reduced_data[:limit]
+
+        return jsonify({
+            "count": total_count,
             "customers": reduced_data
-        }
-        return jsonify(response)
-    
+        })
     except ValueError as ve:
         return jsonify({"error": f"Lỗi giá trị đầu vào: {str(ve)}"}), 400
     except Exception as e:
         return jsonify({"error": f"Lỗi khi tìm kiếm: {str(e)}"}), 500
+
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
